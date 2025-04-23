@@ -353,29 +353,29 @@ function generateWeatherSummary(weatherData, waypoints) {
     waypoints.forEach((waypoint, index) => {
         const metar = weatherData.metar.find(m => m.startsWith(waypoint.airport));
         let weatherCondition = 'vfr';
-        let weatherLabel = 'VFR Conditions';
+        let weatherLabel = 'VFR';
         
         if (metar) {
             const decoded = decodeMETAR(metar);
             
             if (decoded.weather && decoded.weather.some(w => ['TS', 'SQ', 'FC'].includes(w))) {
                 weatherCondition = 'severe-wx';
-                weatherLabel = 'Severe Weather';
+                weatherLabel = 'SEVERE-WX';
             } else if (decoded.weather || (decoded.clouds && decoded.clouds.some(c => c.includes('BKN') || c.includes('OVC')))) {
                 weatherCondition = 'sig-wx';
-                weatherLabel = 'Significant Weather';
+                weatherLabel = 'SIG-WX';
             }
         }
 
         summary += `
             <div class="summary-item ${weatherCondition}">
-                <h3>${waypoint.airport} at ${waypoint.altitude.toLocaleString()} ft</h3>
+                <h3>${waypoint.airport} <span style="opacity: 0.8">${waypoint.altitude.toLocaleString()} ft</span></h3>
                 <div class="weather-condition-label">${weatherLabel}</div>
-                <p><strong>Wind:</strong> ${metar ? getWindInfo(metar) : 'N/A'}</p>
-                <p><strong>Visibility:</strong> ${metar ? getVisibilityInfo(metar) : 'N/A'}</p>
+                <p>Wind: ${metar ? getWindInfo(metar) : 'N/A'}</p>
+                <p>Visibility: ${metar ? getVisibilityInfo(metar) : 'N/A'}</p>
                 ${index < waypoints.length - 1 ? `
                     <div class="next-waypoint">
-                        ${waypoints[index + 1].airport} at ${waypoints[index + 1].altitude.toLocaleString()} ft
+                        Next: ${waypoints[index + 1].airport} at ${waypoints[index + 1].altitude.toLocaleString()} ft
                     </div>
                 ` : ''}
             </div>
@@ -548,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tafContent').innerHTML = '<div class="no-data">Enter a flight plan to see TAF reports</div>';
     document.getElementById('pirepContent').innerHTML = '<div class="no-data">Enter a flight plan to see PIREP reports</div>';
     document.getElementById('sigmetContent').innerHTML = '<div class="no-data">Enter a flight plan to see SIGMET reports</div>';
+    document.getElementById('summaryContent').innerHTML = '<div class="no-data">Enter a flight plan to see route summary and weather conditions</div>';
 
     // Add event listeners
     const searchBtn = document.getElementById('searchBtn');

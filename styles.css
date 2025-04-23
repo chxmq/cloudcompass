@@ -23,8 +23,8 @@
     --border-radius-sm: 12px;
     --border-radius-lg: 28px;
     --transition-speed: 0.25s;
-    --scrollbar-width: 6px;
-    --scrollbar-track: transparent;
+    --scrollbar-width: 8px;
+    --scrollbar-track: rgba(93, 79, 255, 0.03);
     --scrollbar-thumb: rgba(93, 79, 255, 0.25);
     --scrollbar-thumb-hover: rgba(93, 79, 255, 0.4);
     --side-gap: 40px;
@@ -200,13 +200,13 @@ button:hover {
 }
 
 .weather-card {
-    background-color: var(--card-background);
+    background-color: white;
     border-radius: var(--border-radius);
-    padding: 30px;
+    padding: 20px;
     box-shadow: var(--card-shadow);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     animation: fadeIn 0.5s ease-out;
-    height: 500px;
+    height: 350px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--subtle-border-color);
@@ -237,13 +237,13 @@ button:hover {
 
 .weather-card h2 {
     color: var(--primary-color);
-    margin-bottom: 22px;
+    margin-bottom: 15px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 15px;
+    padding-bottom: 10px;
     border-bottom: 2px solid rgba(93, 79, 255, 0.08);
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 600;
 }
 
@@ -252,7 +252,7 @@ button:hover {
     opacity: 0.85;
 }
 
-/* Enhanced scrolling content */
+/* Enhanced scrolling content with improved scrollbars */
 .weather-content {
     flex: 1;
     display: flex;
@@ -268,33 +268,33 @@ button:hover {
     max-height: 80vh;
 }
 
-/* Improved scrollbar styling for better visibility */
+/* Improved scrollbar styling for better visibility and usability */
 .weather-content::-webkit-scrollbar {
-    width: 8px;
-    background-color: rgba(93, 79, 255, 0.03);
+    width: var(--scrollbar-width);
+    background-color: var(--scrollbar-track);
     border-radius: 4px;
 }
 
 .weather-content::-webkit-scrollbar-thumb {
-    background-color: rgba(93, 79, 255, 0.2);
+    background-color: var(--scrollbar-thumb);
     border-radius: 4px;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
 
 .weather-content::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(93, 79, 255, 0.4);
+    background-color: var(--scrollbar-thumb-hover);
 }
 
 .weather-content::-webkit-scrollbar-track {
-    background-color: transparent;
+    background-color: var(--scrollbar-track);
     border-radius: 4px;
 }
 
 /* Firefox scrollbar styles */
 .weather-content {
     scrollbar-width: thin;
-    scrollbar-color: rgba(93, 79, 255, 0.2) transparent;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 /* Enhanced item styling with refined hover effects */
@@ -365,10 +365,13 @@ button:hover {
 .map-and-summary {
     margin-top: 50px;
     margin-bottom: 50px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
 }
 
 .map-container {
-    background-color: var(--card-background);
+    background-color: white;
     border-radius: var(--border-radius);
     padding: 30px;
     box-shadow: var(--card-shadow);
@@ -388,108 +391,136 @@ button:hover {
 }
 
 .weather-summary {
-    background-color: var(--card-background);
+    background-color: white;
     border-radius: var(--border-radius);
-    padding: 35px;
+    padding: 20px;
     box-shadow: var(--card-shadow);
     animation: fadeIn 0.5s ease-out;
-    height: 600px;
+    height: auto;
+    max-height: 600px;
     overflow-y: auto;
     border: 1px solid var(--subtle-border-color);
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
+    cursor: default;
 }
 
-.weather-summary h2 {
-    color: var(--primary-color);
-    font-size: 1.8em;
-    font-weight: 600;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid rgba(93, 79, 255, 0.08);
-    display: flex;
-    align-items: center;
-    gap: 15px;
+/* Improved summary scrollbar */
+.weather-summary::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+    display: block;
 }
 
-.weather-summary h2 i {
-    font-size: 1.3em;
-    color: var(--primary-color);
+.weather-summary::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
 }
 
-/* Enhanced summary styling */
+.weather-summary::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.weather-summary::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* For Firefox */
+.weather-summary {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Make sure the content is properly spaced */
 .summary-content {
     display: flex;
     flex-direction: column;
-    gap: 35px;
-    padding: 5px 0;
+    gap: 15px;
+    padding-right: 2px;
 }
 
 .summary-item {
-    background: var(--card-background);
+    background: white;
     border-radius: var(--border-radius);
-    padding: 35px;
-    box-shadow: 0 8px 25px rgba(93, 79, 255, 0.06);
+    padding: 20px;
+    margin-bottom: 15px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    border: 1px solid var(--subtle-border-color);
+    border: none;
     display: flex;
     flex-direction: column;
-    gap: 25px;
-    min-height: 250px;
+    gap: 10px;
+    min-height: auto;
 }
 
-.summary-item:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 30px rgba(93, 79, 255, 0.1);
+.summary-item.vfr {
+    background: #4ade80;
+    color: white;
 }
 
+.summary-item.sig-wx {
+    background: #f97316;
+    color: white;
+}
+
+.summary-item.severe-wx {
+    background: #ef4444;
+    color: white;
+}
+
+/* Standardize heading color */
 .summary-item h3 {
-    color: var(--primary-color);
-    font-size: 1.5em;
+    font-size: 1.2em;
     font-weight: 600;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 8px;
+    color: inherit;
 }
 
-.weather-condition-label {
-    font-size: 1.1em;
-    padding: 10px 25px;
-    border-radius: var(--border-radius-sm);
-    font-weight: 500;
-    text-align: center;
-    margin-top: 15px;
-    display: inline-block;
-    letter-spacing: 0.5px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+/* Regular summary item heading color */
+.summary-item:not(.vfr):not(.sig-wx):not(.severe-wx) h3 {
+    color: var(--primary-color);
 }
 
 .summary-item p {
-    font-size: 1.2em;
-    line-height: 1.7;
-    color: var(--text-color);
-    margin: 10px 0;
+    font-size: 1em;
+    line-height: 1.4;
+    color: inherit;
+    margin: 2px 0;
+    opacity: 0.9;
+}
+
+.weather-condition-label {
+    font-size: 0.9em;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.2);
+    display: inline-block;
+    margin-bottom: 8px;
 }
 
 .next-waypoint {
-    margin-top: 30px;
-    padding-top: 30px;
-    border-top: 2px solid rgba(93, 79, 255, 0.08);
-    font-size: 1.3em;
-    color: var(--secondary-color);
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    font-size: 0.95em;
+    color: inherit;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     font-weight: 500;
 }
 
 .next-waypoint::before {
-    content: '→';
-    color: var(--primary-color);
-    font-size: 1.6em;
+    content: '↓';
+    font-size: 1.2em;
     font-weight: 600;
+    color: inherit;
 }
 
 /* Enhanced responsive styles */
@@ -509,6 +540,10 @@ button:hover {
     
     header h1 {
         font-size: 2.5rem;
+    }
+    
+    .weather-summary {
+        height: 300px;
     }
 }
 
@@ -563,6 +598,14 @@ button:hover {
     
     .summary-item h3 {
         font-size: 1.3em;
+    }
+    
+    .map-container {
+        height: 400px;
+    }
+    
+    .weather-summary {
+        height: 250px;
     }
 }
 
@@ -719,54 +762,6 @@ hr {
     height: 1px;
     background: rgba(93, 79, 255, 0.08);
     margin: 25px 0;
-}
-
-/* Enhanced summary styling */
-.summary {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    font-style: italic;
-    color: #4a5568;
-    line-height: 1.6;
-}
-
-/* Enhanced weather condition styles */
-.summary-item.vfr {
-    background: linear-gradient(to bottom right, var(--card-background) 0%, rgba(0, 184, 148, 0.03) 100%);
-    border: 2px solid var(--success-color);
-}
-
-.summary-item.sig-wx {
-    background: linear-gradient(to bottom right, var(--card-background) 0%, rgba(249, 168, 38, 0.03) 100%);
-    border: 2px solid var(--warning-color);
-}
-
-.summary-item.severe-wx {
-    background: linear-gradient(to bottom right, var(--card-background) 0%, rgba(255, 83, 116, 0.03) 100%);
-    border: 2px solid var(--danger-color);
-}
-
-/* Enhanced condition labels */
-.vfr .weather-condition-label {
-    background: rgba(0, 184, 148, 0.1);
-    color: var(--success-color);
-    font-size: 1.1em;
-    border: 1px solid rgba(0, 184, 148, 0.2);
-}
-
-.sig-wx .weather-condition-label {
-    background: rgba(249, 168, 38, 0.1);
-    color: var(--warning-color);
-    font-size: 1.1em;
-    border: 1px solid rgba(249, 168, 38, 0.2);
-}
-
-.severe-wx .weather-condition-label {
-    background: rgba(255, 83, 116, 0.1);
-    color: var(--danger-color);
-    font-size: 1.1em;
-    border: 1px solid rgba(255, 83, 116, 0.2);
 }
 
 /* Enhanced forecast sections */
