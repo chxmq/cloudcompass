@@ -1,3 +1,5 @@
+const BACKEND_URL = 'https://cloudcompass.onrender.com';
+
 let map;
 let markers = [];
 let flightPath;
@@ -113,7 +115,7 @@ async function fetchWeatherData(flightPlan) {
     const airports = waypoints.map(wp => wp.airport);
     
     try {
-        const response = await fetch(`http://localhost:3000/api/weather?route=${encodeURIComponent(flightPlan)}`);
+        const response = await fetch(`${BACKEND_URL}/api/weather?route=${encodeURIComponent(flightPlan)}`);
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.details || `Server returned ${response.status}: ${response.statusText}`);
