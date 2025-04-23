@@ -4,7 +4,7 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 // Validate environment variables
 const requiredEnvVars = ['GROQ_API_KEY', 'MAPBOX_ACCESS_TOKEN'];
@@ -27,14 +27,10 @@ app.get('/api/config', (req, res) => {
 });
 
 // Static files should be served after API routes
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 async function generateSummary(data, type) {
     try {
-        if (!data || (Array.isArray(data) && data.length === 0)) {
-            return "No data available to summarize.";
-        }
-
         if (type === 'TAF' && Array.isArray(data)) {
             data = data.join('\n');
         }
@@ -116,7 +112,7 @@ app.get('/api/weather', async (req, res) => {
 
     try {
         const routeParts = route.split(',');
-        if (routeParts.length < 2 || routeParts.length % 2 !== 0) {
+        if (routeParts.length % 2 !== 0) {
             return res.status(400).json({ 
                 error: 'Invalid route format',
                 details: 'Route must contain pairs of airport codes and altitudes'
@@ -125,7 +121,7 @@ app.get('/api/weather', async (req, res) => {
 
         const airports = [];
         for (let i = 0; i < routeParts.length; i += 2) {
-            const airport = routeParts[i].trim().toUpperCase();
+            const airport = routeParts[i].trim();
             if (!airport || !/^[A-Z]{3,4}$/.test(airport)) {
                 return res.status(400).json({
                     error: 'Invalid airport code',
@@ -158,68 +154,37 @@ app.get('/api/weather', async (req, res) => {
             }
         };
 
-        // Fetch and process METAR data
-        try {
-            const metarResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/metar.php?ids=${airports.join(',')}&format=raw`);
-            if (!metarResponse.ok) {
-                throw new Error(`METAR API returned ${metarResponse.status}: ${metarResponse.statusText}`);
-            }
-            const metarData = await metarResponse.text();
-            results.metar = metarData.split('\n').filter(line => line.trim());
-            
-            for (const metar of results.metar) {
-                const summary = await generateSummary(metar, 'METAR');
-                results.summaries.metar.push({
-                    raw: metar,
-                    summary
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching METAR data:', error);
-            results.metar = [];
-            results.summaries.metar = [{
-                summary: `Failed to fetch METAR data: ${error.message}`
-            }];
+        const metarResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/metar.php?ids=${airports.join(',')}&format=raw`);
+        const metarData = await metarResponse.text();
+        results.metar = metarData.split('\n').filter(line => line.trim());
+        
+        for (const metar of results.metar) {
+            const summary = await generateSummary(metar, 'METAR');
+            results.summaries.metar.push(summary);
         }
 
-        // Fetch and process TAF data
-        try {
-            const tafResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/taf.php?ids=${airports.join(',')}&format=raw`);
-            if (!tafResponse.ok) {
-                throw new Error(`TAF API returned ${tafResponse.status}: ${tafResponse.statusText}`);
+        const tafResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/taf.php?ids=${airports.join(',')}&format=raw`);
+        const tafData = await tafResponse.text();
+        results.taf = tafData.split('\n').filter(line => line.trim());
+        
+        const tafsByAirport = {};
+        results.taf.forEach(taf => {
+            const airport = taf.substring(0, 4);
+            if (!tafsByAirport[airport]) {
+                tafsByAirport[airport] = [];
             }
-            const tafData = await tafResponse.text();
-            results.taf = tafData.split('\n').filter(line => line.trim());
-            
-            const tafsByAirport = {};
-            results.taf.forEach(taf => {
-                if (taf.length >= 4) {
-                    const airport = taf.substring(0, 4);
-                    if (!tafsByAirport[airport]) {
-                        tafsByAirport[airport] = [];
-                    }
-                    tafsByAirport[airport].push(taf);
-                }
+            tafsByAirport[airport].push(taf);
+        });
+
+        results.summaries.taf = [];
+        for (const airport in tafsByAirport) {
+            const summary = await generateSummary(tafsByAirport[airport], 'TAF');
+            results.summaries.taf.push({
+                airport,
+                summary
             });
-
-            results.summaries.taf = [];
-            for (const airport in tafsByAirport) {
-                const summary = await generateSummary(tafsByAirport[airport], 'TAF');
-                results.summaries.taf.push({
-                    airport,
-                    raw: tafsByAirport[airport],
-                    summary
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching TAF data:', error);
-            results.taf = [];
-            results.summaries.taf = [{
-                summary: `Failed to fetch TAF data: ${error.message}`
-            }];
         }
 
-        // Fetch and process PIREP data
         try {
             const pirepResponse = await fetch('https://aviationweather.gov/cgi-bin/data/pirep.php?format=raw');
             if (!pirepResponse.ok) {
@@ -247,82 +212,64 @@ app.get('/api/weather', async (req, res) => {
 
             for (const pirep of results.pirep) {
                 const summary = await generateSummary(pirep, 'PIREP');
-                results.summaries.pirep.push({
-                    raw: pirep,
-                    summary
-                });
+                results.summaries.pirep.push(summary);
             }
         } catch (error) {
             console.error('Error fetching PIREP data:', error);
             results.pirep = [];
-            results.summaries.pirep = [{
-                summary: `Failed to fetch PIREP data: ${error.message}`
-            }];
         }
 
-        // Fetch and process SIGMET data
-        try {
-            const domesticSigmetResponse = await fetch('https://aviationweather.gov/api/data/airsigmet?format=raw');
-            if (!domesticSigmetResponse.ok) {
-                throw new Error(`Failed to fetch domestic SIGMET data: ${domesticSigmetResponse.status} ${domesticSigmetResponse.statusText}`);
-            }
-            const domesticSigmetData = await domesticSigmetResponse.text();
-            
-            const intlSigmetResponse = await fetch('https://aviationweather.gov/api/data/isigmet?format=raw');
-            if (!intlSigmetResponse.ok) {
-                throw new Error(`Failed to fetch international SIGMET data: ${intlSigmetResponse.status} ${intlSigmetResponse.statusText}`);
-            }
-            const intlSigmetData = await intlSigmetResponse.text();
-            
-            const domesticSigmets = domesticSigmetData.split('\n').filter(line => {
-                const trimmedLine = line.trim();
-                return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
+        const domesticSigmetResponse = await fetch('https://aviationweather.gov/api/data/airsigmet?format=raw');
+        if (!domesticSigmetResponse.ok) {
+            throw new Error(`Failed to fetch domestic SIGMET data: ${domesticSigmetResponse.status} ${domesticSigmetResponse.statusText}`);
+        }
+        const domesticSigmetData = await domesticSigmetResponse.text();
+        
+        const intlSigmetResponse = await fetch('https://aviationweather.gov/api/data/isigmet?format=raw');
+        if (!intlSigmetResponse.ok) {
+            throw new Error(`Failed to fetch international SIGMET data: ${intlSigmetResponse.status} ${intlSigmetResponse.statusText}`);
+        }
+        const intlSigmetData = await intlSigmetResponse.text();
+        
+        const domesticSigmets = domesticSigmetData.split('\n').filter(line => {
+            const trimmedLine = line.trim();
+            return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
+        });
+
+        const intlSigmets = intlSigmetData.split('\n').filter(line => {
+            const trimmedLine = line.trim();
+            return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
+        });
+
+        results.sigmet = [...domesticSigmets, ...intlSigmets].filter(sigmet => {
+            return airports.some(airport => {
+                if (sigmet.includes(airport)) {
+                    return true;
+                }
+
+                const areaMatch = sigmet.match(/AREA ([A-Z0-9]+)/);
+                if (areaMatch) {
+                    const area = areaMatch[1];
+                    return airports.some(ap => ap.startsWith(area));
+                }
+
+                const latLonMatches = sigmet.match(/[NS]\d{2,4}[EW]\d{3,5}/g);
+                if (latLonMatches) {
+                    return true;
+                }
+
+                const firMatch = sigmet.match(/([A-Z]{4}) FIR/);
+                if (firMatch) {
+                    return airports.some(ap => ap.startsWith(firMatch[1]));
+                }
+
+                return false;
             });
+        });
 
-            const intlSigmets = intlSigmetData.split('\n').filter(line => {
-                const trimmedLine = line.trim();
-                return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
-            });
-
-            results.sigmet = [...domesticSigmets, ...intlSigmets].filter(sigmet => {
-                return airports.some(airport => {
-                    if (sigmet.includes(airport)) {
-                        return true;
-                    }
-
-                    const areaMatch = sigmet.match(/AREA ([A-Z0-9]+)/);
-                    if (areaMatch) {
-                        const area = areaMatch[1];
-                        return airports.some(ap => ap.startsWith(area));
-                    }
-
-                    const latLonMatches = sigmet.match(/[NS]\d{2,4}[EW]\d{3,5}/g);
-                    if (latLonMatches) {
-                        return true; // This is too broad - should add better lat/lon relevance checking
-                    }
-
-                    const firMatch = sigmet.match(/([A-Z]{4}) FIR/);
-                    if (firMatch) {
-                        return airports.some(ap => ap.startsWith(firMatch[1]));
-                    }
-
-                    return false;
-                });
-            });
-
-            for (const sigmet of results.sigmet) {
-                const summary = await generateSummary(sigmet, 'SIGMET');
-                results.summaries.sigmet.push({
-                    raw: sigmet,
-                    summary
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching SIGMET data:', error);
-            results.sigmet = [];
-            results.summaries.sigmet = [{
-                summary: `Failed to fetch SIGMET data: ${error.message}`
-            }];
+        for (const sigmet of results.sigmet) {
+            const summary = await generateSummary(sigmet, 'SIGMET');
+            results.summaries.sigmet.push(summary);
         }
 
         res.json(results);
@@ -333,20 +280,6 @@ app.get('/api/weather', async (req, res) => {
             details: error.message
         });
     }
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({
-        error: 'Internal server error',
-        details: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
-    });
-});
-
-// Catch-all route for client-side routing
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {
