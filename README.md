@@ -22,7 +22,7 @@ A modern, real-time aviation weather dashboard that provides comprehensive weath
 - **Backend**: Node.js
 - **APIs**: 
   - Aviation Weather API
-  - Google Maps API
+  - Mapbox GL JS for mapping functionality
   - Groq API (for weather interpretation)
 
 ## 🚀 Getting Started
@@ -31,7 +31,7 @@ A modern, real-time aviation weather dashboard that provides comprehensive weath
 
 - Node.js (v14 or higher)
 - npm (v6 or higher)
-- Google Maps API key
+- Mapbox Access Token
 - Groq API key
 
 ### Installation
@@ -49,7 +49,7 @@ npm install
 
 3. Create a `.env` file in the root directory:
 ```env
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 GROQ_API_KEY=your_groq_api_key
 ```
 
@@ -108,7 +108,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Aviation Weather API for providing weather data
-- Google Maps for mapping functionality
+- Mapbox for mapping functionality
 - Groq for AI-powered weather interpretation
 - All contributors and users of the project
 

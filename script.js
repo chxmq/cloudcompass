@@ -1,29 +1,79 @@
 let map;
 let markers = [];
 let flightPath;
+let mapboxToken;
 
 // Cache for airport coordinates to reduce API calls
 const airportCoordinatesCache = {};
 
-function initMap() {
-    const defaultCenter = { lat: 39.8283, lng: -98.5795 }; // Center of the US
-    map = new google.maps.Map(document.getElementById('map'), {
-        center: defaultCenter,
-        zoom: 4,
-        mapTypeId: 'terrain',
-        styles: [
-            {
-                featureType: 'all',
-                elementType: 'labels.text.fill',
-                stylers: [{ color: '#7c93a3' }]
-            },
-            {
-                featureType: 'all',
-                elementType: 'labels.text.stroke',
-                stylers: [{ visibility: 'off' }]
+async function initMap() {
+    try {
+        // Fetch the Mapbox token from the server
+        if (!mapboxToken) {
+            try {
+                const response = await fetch('/api/config');
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                const config = await response.json();
+                mapboxToken = config.mapboxToken;
+            } catch (error) {
+                console.error('Error fetching config:', error);
+                // Fallback to direct token if available in window object
+                if (window.MAPBOX_ACCESS_TOKEN) {
+                    mapboxToken = window.MAPBOX_ACCESS_TOKEN;
+                } else {
+                    throw new Error('Could not get Mapbox token. Please make sure the server is running.');
+                }
             }
-        ]
-    });
+        }
+
+        console.log('Initializing map with token:', mapboxToken);
+        
+        if (!mapboxToken) {
+            throw new Error('Mapbox access token is not set');
+        }
+
+        mapboxgl.accessToken = mapboxToken;
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/outdoors-v12',
+            center: [-98.5795, 39.8283], // Center of the US
+            zoom: 4
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Add error handling for map load
+        map.on('load', () => {
+            console.log('Map loaded successfully');
+            // Hide loading message
+            const loadingElement = document.querySelector('.map-loading');
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+            }
+        });
+
+        map.on('error', (e) => {
+            console.error('Map error:', e);
+            showError('Failed to load map. Please check console for details.');
+            // Hide loading message on error
+            const loadingElement = document.querySelector('.map-loading');
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+            }
+        });
+
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        showError('Failed to initialize map. Please check console for details.');
+        // Hide loading message on error
+        const loadingElement = document.querySelector('.map-loading');
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+        }
+    }
 }
 
 function parseFlightPlan(flightPlan) {
@@ -411,100 +461,105 @@ function calculateTotalDistance(waypoints) {
 }
 
 async function updateMap(waypoints, weatherData) {
-    // Clear existing markers and path
-    markers.forEach(marker => marker.setMap(null));
+    // Clear existing markers and flight path
+    markers.forEach(marker => marker.remove());
     markers = [];
     if (flightPath) {
-        flightPath.setMap(null);
+        flightPath.remove();
     }
 
-    const pathCoordinates = [];
-    let bounds = new google.maps.LatLngBounds();
+    let bounds = new mapboxgl.LngLatBounds();
 
-    // Process waypoints sequentially to maintain order
-    for (const waypoint of waypoints) {
-        const position = await getAirportCoordinates(waypoint.airport);
-        if (position) {
-            pathCoordinates.push(position);
-            bounds.extend(position);
+    for (let i = 0; i < waypoints.length; i++) {
+        const waypoint = waypoints[i];
+        const coordinates = await getAirportCoordinates(waypoint.airport);
+        
+        if (coordinates) {
+            const [lng, lat] = coordinates;
+            bounds.extend([lng, lat]);
 
-            const metar = weatherData.metar.find(m => m.startsWith(waypoint.airport));
-            let weatherCondition = 'unknown';
-            let weatherColor = '#808080'; // Default gray
-
-            if (metar) {
-                const decoded = decodeMETAR(metar);
-                if (decoded.weather && decoded.weather.some(w => ['TS', 'SQ', 'FC'].includes(w))) {
-                    weatherCondition = 'severe';
-                    weatherColor = '#FF0000'; // Red for severe weather
-                } else if (decoded.weather || (decoded.clouds && decoded.clouds.some(c => c.includes('BKN') || c.includes('OVC')))) {
-                    weatherCondition = 'significant';
-                    weatherColor = '#FFA500'; // Orange for significant weather
-                } else {
-                    weatherCondition = 'vfr';
-                    weatherColor = '#00FF00'; // Green for VFR conditions
-                }
-            }
-
-            const marker = new google.maps.Marker({
-                position: position,
-                map: map,
-                title: `${waypoint.airport} (${waypoint.altitude.toLocaleString()} ft)`,
-                icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 10,
-                    fillColor: weatherColor,
-                    fillOpacity: 0.8,
-                    strokeWeight: 2,
-                    strokeColor: '#FFFFFF'
-                }
-            });
-
-            const infoWindow = new google.maps.InfoWindow({
-                content: `
-                    <div class="map-info-window">
-                        <h3>${waypoint.airport}</h3>
-                        <p>Altitude: ${waypoint.altitude.toLocaleString()} ft</p>
-                        <p>Weather Condition: ${weatherCondition.toUpperCase()}</p>
-                        ${metar ? `<p>METAR: ${metar}</p>` : ''}
-                    </div>
-                `
-            });
-
-            marker.addListener('click', () => {
-                infoWindow.open(map, marker);
-            });
+            // Create marker
+            const marker = new mapboxgl.Marker({
+                color: '#FF0000',
+                scale: 0.8
+            })
+                .setLngLat([lng, lat])
+                .setPopup(new mapboxgl.Popup({ offset: 25 })
+                    .setHTML(`<strong>${waypoint.airport}</strong><br>Altitude: ${waypoint.altitude}ft`))
+                .addTo(map);
 
             markers.push(marker);
 
-            // Add weather classification circle overlay
-            const weatherCircle = new google.maps.Circle({
-                strokeColor: weatherColor,
-                strokeOpacity: 0.8,
-                strokeWeight: 2,
-                fillColor: weatherColor,
-                fillOpacity: 0.2,
-                map: map,
-                center: position,
-                radius: 50000, // 50km radius
-                clickable: false
+            // Add weather circle
+            if (weatherData && weatherData[waypoint.airport]) {
+                const weather = weatherData[waypoint.airport];
+                const radius = 50000; // 50km radius
+                
+                map.addLayer({
+                    id: `weather-circle-${waypoint.airport}`,
+                    type: 'circle',
+                    source: {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            properties: {},
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [lng, lat]
+                            }
+                        }
+                    },
+                    paint: {
+                        'circle-radius': radius,
+                        'circle-color': '#FF0000',
+                        'circle-opacity': 0.1,
+                        'circle-stroke-width': 1,
+                        'circle-stroke-color': '#FF0000'
+                    }
+                });
+            }
+        }
+    }
+
+    // Add flight path
+    if (waypoints.length > 1) {
+        const coordinates = [];
+        for (const waypoint of waypoints) {
+            const coords = await getAirportCoordinates(waypoint.airport);
+            if (coords) {
+                coordinates.push(coords);
+            }
+        }
+
+        if (coordinates.length > 1) {
+            map.addLayer({
+                id: 'flight-path',
+                type: 'line',
+                source: {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        properties: {},
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: coordinates
+                        }
+                    }
+                },
+                paint: {
+                    'line-color': '#FF0000',
+                    'line-width': 2,
+                    'line-dasharray': [2, 2]
+                }
             });
         }
     }
 
-    // Create flight path
-    flightPath = new google.maps.Polyline({
-        path: pathCoordinates,
-        geodesic: true,
-        strokeColor: '#4285F4',
-        strokeOpacity: 1.0,
-        strokeWeight: 3
-    });
-    flightPath.setMap(map);
-
-    // Fit map to show all waypoints
-    if (pathCoordinates.length > 0) {
-        map.fitBounds(bounds);
+    // Fit map to bounds
+    if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, {
+            padding: 50
+        });
     }
 }
 
@@ -515,20 +570,13 @@ async function getAirportCoordinates(airportCode) {
     }
 
     try {
-        // Fetch airport data from FAA database
-        const response = await fetch(`https://nfdc.faa.gov/nfdcApps/services/ajv5/airportDisplay.jsp?airportId=${airportCode}`);
-        const text = await response.text();
+        // Use OpenSky Network's API for airport coordinates
+        const response = await fetch(`https://opensky-network.org/api/airports?icao=${airportCode}`);
+        const data = await response.json();
         
-        // Parse the response to extract coordinates
-        // This is a simplified example - you'll need to adjust the parsing based on the actual response format
-        const latMatch = text.match(/Latitude: ([\d.-]+)/);
-        const lonMatch = text.match(/Longitude: ([\d.-]+)/);
-        
-        if (latMatch && lonMatch) {
-            const coordinates = {
-                lat: parseFloat(latMatch[1]),
-                lng: parseFloat(lonMatch[1])
-            };
+        if (data && data.length > 0) {
+            const airport = data[0];
+            const coordinates = [airport.longitude, airport.latitude];
             
             // Cache the result
             airportCoordinatesCache[airportCode] = coordinates;
@@ -610,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initialize Google Maps
+    // Initialize Mapbox map
     initMap();
 });
 
