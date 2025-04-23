@@ -9,7 +9,7 @@ const airportCoordinatesCache = {};
 // Set the backend URL based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'
-    : '';
+    : window.location.origin;
 
 async function initMap() {
     try {

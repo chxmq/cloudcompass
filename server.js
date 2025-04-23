@@ -22,6 +22,9 @@ if (missingEnvVars.length > 0) {
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from the current directory
+app.use(express.static(__dirname));
+
 // API Routes
 app.get('/api/config', (req, res) => {
     // In production, we'll use Netlify's environment variables
@@ -38,15 +41,6 @@ app.get('/api/config', (req, res) => {
 
     res.json(mapboxConfig);
 });
-
-// Static files should be served after API routes
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(__dirname));
-    // Handle client-side routing
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'index.html'));
-    });
-}
 
 async function generateSummary(data, type) {
     try {
@@ -299,6 +293,11 @@ app.get('/api/weather', async (req, res) => {
             details: error.message
         });
     }
+});
+
+// Handle client-side routing - serve index.html for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(port, () => {
