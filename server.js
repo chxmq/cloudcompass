@@ -81,7 +81,7 @@ async function generateSummary(data, type) {
                 model: "llama3-70b-8192",
                 messages: [{
                     role: "system",
-                    content: "You are a helpful weather interpreter. Provide clear, simple explanations of aviation weather reports in plain English. No technical jargon unless necessary. Keep responses concise and focused on the most important information for pilots."
+                    content: "You are a helpful weather interpreter. Provide clear, No Bold, simple explanations of aviation weather reports in plain English. No technical jargon unless necessary. Keep responses concise and focused on the most important information for pilots."
                 }, {
                     role: "user",
                     content: `${prompt}\n\n${data}`
