@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✈️ Aviation Weather Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cloud-sun"></i> Aviation Weather Dashboard</h1>
+            <p class="subtitle">Your real-time weather companion for safe flights</p>
+        </header>
+        
+        <div class="search-container">
+            <div class="input-group">
+                <input type="text" id="routeInput" placeholder="Enter flight plan (e.g., KPHX,1500,KBXK,12000,KPSP,20000,KLAX,50)">
+                <button id="searchBtn">
+                    <span class="button-text"><i class="fas fa-search"></i> Get Weather <i class="fas fa-cloud-sun-rain"></i></span>
+                    <div class="loading-spinner"></div>
+                </button>
+            </div>
+            <p class="input-help">Format: Airport ID, Altitude (ft), Airport ID, Altitude (ft), etc.</p>
+        </div>
+
+        <div class="weather-display">
+            <div class="weather-cards-container">
+                <div class="weather-card" id="metarCard">
+                    <h2>
+                        <span><i class="fas fa-plane"></i> METAR</span>
+                        <i class="fas fa-wind"></i>
+                    </h2>
+                    <div class="weather-content" id="metarContent">
+                        <div class="no-data">Enter a flight plan to see METAR reports</div>
+                    </div>
+                </div>
+
+                <div class="weather-card" id="tafCard">
+                    <h2>
+                        <span><i class="fas fa-calendar-alt"></i> TAF</span>
+                        <i class="fas fa-clock"></i>
+                    </h2>
+                    <div class="weather-content" id="tafContent">
+                        <div class="no-data">Enter a flight plan to see TAF reports</div>
+                    </div>
+                </div>
+
+                <div class="weather-card" id="pirepCard">
+                    <h2>
+                        <span><i class="fas fa-comment-alt"></i> PIREP</span>
+                        <i class="fas fa-user-pilot"></i>
+                    </h2>
+                    <div class="weather-content" id="pirepContent">
+                        <div class="no-data">Enter a flight plan to see PIREP reports</div>
+                    </div>
+                </div>
+
+                <div class="weather-card" id="sigmetCard">
+                    <h2>
+                        <span><i class="fas fa-exclamation-triangle"></i> SIGMET</span>
+                        <i class="fas fa-radiation"></i>
+                    </h2>
+                    <div class="weather-content" id="sigmetContent">
+                        <div class="no-data">Enter a flight plan to see SIGMET reports</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-and-summary">
+            <div class="map-container">
+                <h2><i class="fas fa-map-marked-alt"></i> Flight Path & Weather <i class="fas fa-globe-americas"></i></h2>
+                <div id="map"></div>
+            </div>
+
+            <div class="weather-summary">
+                <h2><i class="fas fa-clipboard-list"></i> Route Summary</h2>
+                <div id="summaryContent"></div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&callback=initMap" async defer></script>
+</body>
+</html> 
