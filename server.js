@@ -1,329 +1,354 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const routeInput = document.getElementById('routeInput');
-    const searchBtn = document.getElementById('searchBtn');
-    const metarContent = document.getElementById('metarContent');
-    const tafContent = document.getElementById('tafContent');
-    const pirepContent = document.getElementById('pirepContent');
-    const sigmetContent = document.getElementById('sigmetContent');
-    const summaryContent = document.getElementById('summaryContent');
-    const mapContainer = document.getElementById('map');
-    const mapLoading = document.querySelector('.map-loading');
-    
-    let map;
-    let mapboxToken;
-    let markers = [];
-    
-    // Fetch configuration from server (including Mapbox token)
-    async function fetchConfig() {
-        try {
-            const response = await fetch('/api/config');
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Failed to fetch config:', error);
-            showError('Failed to load configuration. Please try again later.');
-            return null;
-        }
-    }
-    
-    // Initialize map after getting token from server
-    async function initializeMap() {
-        mapLoading.style.display = 'block';
-        
-        try {
-            // Get config from server instead of using hardcoded token
-            const config = await fetchConfig();
-            if (!config || !config.mapboxToken) {
-                throw new Error('Could not load Mapbox token from server');
-            }
-            
-            mapboxgl.accessToken = config.mapboxToken;
-            
-            map = new mapboxgl.Map({
-                container: 'map',
-                style: 'mapbox://styles/mapbox/outdoors-v12',
-                center: [-98.5795, 39.8283], // Center of US
-                zoom: 3
-            });
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const fetch = require('node-fetch');
+const path = require('path');
+const app = express();
+const port = process.env.PORT || 3000;
 
-            map.addControl(new mapboxgl.NavigationControl());
-            
-            map.on('load', function() {
-                mapLoading.style.display = 'none';
-                
-                // Add source for flight path
-                map.addSource('flight-path', {
-                    'type': 'geojson',
-                    'data': {
-                        'type': 'Feature',
-                        'properties': {},
-                        'geometry': {
-                            'type': 'LineString',
-                            'coordinates': []
-                        }
-                    }
-                });
-                
-                // Add layer for flight path
-                map.addLayer({
-                    'id': 'flight-path',
-                    'type': 'line',
-                    'source': 'flight-path',
-                    'layout': {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    'paint': {
-                        'line-color': '#3887be',
-                        'line-width': 5,
-                        'line-opacity': 0.75
-                    }
-                });
-            });
-        } catch (error) {
-            console.error('Map initialization error:', error);
-            mapLoading.style.display = 'none';
-            mapContainer.innerHTML = `<div class="error-message">Failed to load map: ${error.message}</div>`;
+// Validate environment variables
+const requiredEnvVars = ['GROQ_API_KEY', 'MAPBOX_ACCESS_TOKEN'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+    console.error('Missing required environment variables:', missingEnvVars.join(', '));
+    process.exit(1);
+}
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// API Routes
+app.get('/api/config', (req, res) => {
+    res.json({
+        mapboxToken: process.env.MAPBOX_ACCESS_TOKEN
+    });
+});
+
+// Static files should be served after API routes
+app.use(express.static(path.join(__dirname, 'public')));
+
+async function generateSummary(data, type) {
+    try {
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+            return "No data available to summarize.";
         }
-    }
-    
-    // Simple airport coordinate lookup (a more complete version would use an API)
-    function getAirportCoordinates(icao) {
-        // This is a very simplified mapping for example purposes
-        const airports = {
-            'KPHX': [-112.0118, 33.4342],   // Phoenix
-            'KLAX': [-118.4085, 33.9416],   // Los Angeles
-            'KJFK': [-73.7781, 40.6413],    // New York JFK
-            'KORD': [-87.9073, 41.9742],    // Chicago O'Hare
-            'KATL': [-84.4277, 33.6407],    // Atlanta
-            'KSFO': [-122.3750, 37.6188],   // San Francisco
-            'KDFW': [-97.0403, 32.8998],    // Dallas
-            'KMIA': [-80.2781, 25.7933],    // Miami
-            'KDEN': [-104.6737, 39.8561],   // Denver
-            'KSEA': [-122.3088, 47.4502],   // Seattle
-            'KBOS': [-71.0054, 42.3629],    // Boston
-            'KLAS': [-115.1522, 36.0804],   // Las Vegas
-            'KSLC': [-111.9822, 40.7884],   // Salt Lake City
-            'KMSP': [-93.2215, 44.8803],    // Minneapolis
-            'KBXK': [-112.6856, 33.4200],   // Buckeye Municipal
-            'KPSP': [-116.5060, 33.8295]    // Palm Springs
-        };
-        
-        return airports[icao] || null;
-    }
-    
-    // Update flight path on map
-    function updateFlightPath(route) {
-        if (!map || !map.loaded()) {
-            setTimeout(() => updateFlightPath(route), 500);
-            return;
+
+        if (type === 'TAF' && Array.isArray(data)) {
+            data = data.join('\n');
         }
+
+        let prompt;
+        switch(type) {
+            case 'METAR':
+                prompt = "Translate this METAR into simple English. Focus on current conditions only: ";
+                break;
+            case 'TAF':
+                prompt = "Translate this TAF forecast into simple English. What's the weather outlook? ";
+                break;
+            case 'PIREP':
+                prompt = "Explain this pilot report in simple terms. What did the pilot observe? ";
+                break;
+            case 'SIGMET':
+                prompt = "Explain this SIGMET in simple terms. What's the significant weather warning? ";
+                break;
+            default:
+                prompt = "Explain this weather report in simple terms: ";
+        }
+
+        if (!process.env.GROQ_API_KEY) {
+            console.error('GROQ_API_KEY is not set in environment variables');
+            return `Plain English summary temporarily unavailable (API key missing)`;
+        }
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "llama3-70b-8192",
+                messages: [{
+                    role: "system",
+                    content: "You are a helpful weather interpreter. Provide clear, simple explanations of aviation weather reports in plain English. No technical jargon unless necessary. Keep responses concise and focused on the most important information for pilots."
+                }, {
+                    role: "user",
+                    content: `${prompt}\n\n${data}`
+                }],
+                temperature: 0.5,
+                max_tokens: 150,
+                top_p: 0.9,
+                stream: false
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Groq API error (${response.status}):`, errorText);
+            throw new Error(`Groq API returned ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
         
-        // Clear existing markers
-        markers.forEach(marker => marker.remove());
-        markers = [];
-        
-        // Parse route
+        if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+            console.error('Invalid Groq API response:', result);
+            throw new Error('Invalid response format from Groq API');
+        }
+
+        return result.choices[0].message.content;
+    } catch (error) {
+        console.error(`Error generating ${type} summary:`, error);
+        return `Summary temporarily unavailable (${error.message})`;
+    }
+}
+
+app.get('/api/weather', async (req, res) => {
+    const { route } = req.query;
+    
+    if (!route) {
+        return res.status(400).json({ 
+            error: 'Route parameter is required',
+            details: 'Please provide a valid flight plan in the format: KPHX,10000,VIDP,1000'
+        });
+    }
+
+    try {
         const routeParts = route.split(',');
-        const coordinates = [];
-        const bounds = new mapboxgl.LngLatBounds();
-        
+        if (routeParts.length < 2 || routeParts.length % 2 !== 0) {
+            return res.status(400).json({ 
+                error: 'Invalid route format',
+                details: 'Route must contain pairs of airport codes and altitudes'
+            });
+        }
+
+        const airports = [];
         for (let i = 0; i < routeParts.length; i += 2) {
             const airport = routeParts[i].trim().toUpperCase();
-            const altitude = routeParts[i+1] ? parseInt(routeParts[i+1].trim()) : 'N/A';
-            
-            // Skip invalid airport codes
-            if (!/^[A-Z]{3,4}$/.test(airport)) continue;
-            
-            // Get airport coordinates
-            const airportCoords = getAirportCoordinates(airport);
-            
-            if (airportCoords) {
-                coordinates.push(airportCoords);
-                bounds.extend(airportCoords);
-                
-                // Create marker
-                const marker = new mapboxgl.Marker({ color: '#FF5733' })
-                    .setLngLat(airportCoords)
-                    .setPopup(new mapboxgl.Popup().setHTML(`<h3>${airport}</h3><p>Altitude: ${altitude} ft</p>`))
-                    .addTo(map);
-                
-                markers.push(marker);
-            }
-        }
-        
-        // Update flight path on map
-        if (coordinates.length > 1) {
-            const source = map.getSource('flight-path');
-            if (source) {
-                source.setData({
-                    'type': 'Feature',
-                    'properties': {},
-                    'geometry': {
-                        'type': 'LineString',
-                        'coordinates': coordinates
-                    }
+            if (!airport || !/^[A-Z]{3,4}$/.test(airport)) {
+                return res.status(400).json({
+                    error: 'Invalid airport code',
+                    details: `Airport code "${airport}" is invalid. Must be 3-4 uppercase letters.`
                 });
-                
-                // Fit map to show all points with padding
-                map.fitBounds(bounds, { padding: 50 });
+            }
+            airports.push(airport);
+        }
+
+        for (let i = 1; i < routeParts.length; i += 2) {
+            const altitude = parseInt(routeParts[i].trim());
+            if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
+                return res.status(400).json({
+                    error: 'Invalid altitude',
+                    details: `Altitude "${routeParts[i]}" is invalid. Must be a number between 0 and 60000 feet.`
+                });
             }
         }
-    }
-    
-    // Show weather reports on page
-    function displayWeatherData(data) {
-        // METAR reports
-        if (data.summaries.metar && data.summaries.metar.length > 0) {
-            let metarHTML = '<div class="reports">';
-            data.summaries.metar.forEach(item => {
-                metarHTML += `
-                    <div class="report">
-                        <div class="report-raw">${item.raw}</div>
-                        <div class="report-summary">
-                            <span class="summary-title">In Plain English:</span>
-                            <span class="summary-text">${item.summary}</span>
-                        </div>
-                    </div>`;
-            });
-            metarHTML += '</div>';
-            metarContent.innerHTML = metarHTML;
-        } else {
-            metarContent.innerHTML = '<div class="no-data">No METAR data available for this route</div>';
-        }
-        
-        // TAF reports
-        if (data.summaries.taf && data.summaries.taf.length > 0) {
-            let tafHTML = '<div class="reports">';
-            data.summaries.taf.forEach(item => {
-                tafHTML += `
-                    <div class="report">
-                        <div class="report-header">${item.airport}</div>
-                        <div class="report-raw">${Array.isArray(item.raw) ? item.raw.join('<br>') : item.raw}</div>
-                        <div class="report-summary">
-                            <span class="summary-title">In Plain English:</span>
-                            <span class="summary-text">${item.summary}</span>
-                        </div>
-                    </div>`;
-            });
-            tafHTML += '</div>';
-            tafContent.innerHTML = tafHTML;
-        } else {
-            tafContent.innerHTML = '<div class="no-data">No TAF data available for this route</div>';
-        }
-        
-        // PIREP reports
-        if (data.summaries.pirep && data.summaries.pirep.length > 0) {
-            let pirepHTML = '<div class="reports">';
-            data.summaries.pirep.forEach(item => {
-                pirepHTML += `
-                    <div class="report">
-                        <div class="report-raw">${item.raw}</div>
-                        <div class="report-summary">
-                            <span class="summary-title">In Plain English:</span>
-                            <span class="summary-text">${item.summary}</span>
-                        </div>
-                    </div>`;
-            });
-            pirepHTML += '</div>';
-            pirepContent.innerHTML = pirepHTML;
-        } else {
-            pirepContent.innerHTML = '<div class="no-data">No PIREP data available for this route</div>';
-        }
-        
-        // SIGMET reports
-        if (data.summaries.sigmet && data.summaries.sigmet.length > 0) {
-            let sigmetHTML = '<div class="reports">';
-            data.summaries.sigmet.forEach(item => {
-                sigmetHTML += `
-                    <div class="report">
-                        <div class="report-raw">${item.raw}</div>
-                        <div class="report-summary">
-                            <span class="summary-title">In Plain English:</span>
-                            <span class="summary-text">${item.summary}</span>
-                        </div>
-                    </div>`;
-            });
-            sigmetHTML += '</div>';
-            sigmetContent.innerHTML = sigmetHTML;
-        } else {
-            sigmetContent.innerHTML = '<div class="no-data">No SIGMET data available for this route</div>';
-        }
-        
-        // Generate route summary
-        const routeParts = routeInput.value.split(',');
-        let summaryHTML = '<div class="route-summary">';
-        summaryHTML += '<h3>Your Flight Plan</h3>';
-        summaryHTML += '<ul class="route-list">';
-        
-        for (let i = 0; i < routeParts.length; i += 2) {
-            if (i + 1 < routeParts.length) {
-                summaryHTML += `<li><strong>${routeParts[i].trim().toUpperCase()}</strong> at ${routeParts[i+1].trim()} feet</li>`;
+
+        const results = {
+            metar: [],
+            taf: [],
+            pirep: [],
+            sigmet: [],
+            summaries: {
+                metar: [],
+                taf: [],
+                pirep: [],
+                sigmet: []
             }
-        }
-        
-        summaryHTML += '</ul>';
-        summaryHTML += '</div>';
-        summaryContent.innerHTML = summaryHTML;
-    }
-    
-    // Show error message
-    function showError(message) {
-        metarContent.innerHTML = `<div class="error-message">${message}</div>`;
-        tafContent.innerHTML = `<div class="error-message">${message}</div>`;
-        pirepContent.innerHTML = `<div class="error-message">${message}</div>`;
-        sigmetContent.innerHTML = `<div class="error-message">${message}</div>`;
-    }
-    
-    // Handle search button click
-    searchBtn.addEventListener('click', async function() {
-        const route = routeInput.value.trim();
-        
-        if (!route) {
-            showError('Please enter a valid flight plan');
-            return;
-        }
-        
-        // Show loading state
-        searchBtn.classList.add('loading');
-        metarContent.innerHTML = '<div class="loading">Loading weather data...</div>';
-        tafContent.innerHTML = '<div class="loading">Loading forecast data...</div>';
-        pirepContent.innerHTML = '<div class="loading">Loading pilot reports...</div>';
-        sigmetContent.innerHTML = '<div class="loading">Loading weather warnings...</div>';
-        
+        };
+
+        // Fetch and process METAR data
         try {
-            // Update map with route
-            updateFlightPath(route);
-            
-            // Fetch weather data from server
-            const response = await fetch(`/api/weather?route=${encodeURIComponent(route)}`);
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.details || `Server returned ${response.status}: ${response.statusText}`);
+            const metarResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/metar.php?ids=${airports.join(',')}&format=raw`);
+            if (!metarResponse.ok) {
+                throw new Error(`METAR API returned ${metarResponse.status}: ${metarResponse.statusText}`);
             }
+            const metarData = await metarResponse.text();
+            results.metar = metarData.split('\n').filter(line => line.trim());
             
-            const data = await response.json();
-            displayWeatherData(data);
-            
+            for (const metar of results.metar) {
+                const summary = await generateSummary(metar, 'METAR');
+                results.summaries.metar.push({
+                    raw: metar,
+                    summary
+                });
+            }
         } catch (error) {
-            console.error('Error fetching weather data:', error);
-            showError(`Failed to fetch weather data: ${error.message}`);
-        } finally {
-            searchBtn.classList.remove('loading');
+            console.error('Error fetching METAR data:', error);
+            results.metar = [];
+            results.summaries.metar = [{
+                summary: `Failed to fetch METAR data: ${error.message}`
+            }];
         }
-    });
-    
-    // Initialize the map when page loads
-    initializeMap();
-    
-    // Allow pressing Enter in input field to trigger search
-    routeInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchBtn.click();
+
+        // Fetch and process TAF data
+        try {
+            const tafResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/taf.php?ids=${airports.join(',')}&format=raw`);
+            if (!tafResponse.ok) {
+                throw new Error(`TAF API returned ${tafResponse.status}: ${tafResponse.statusText}`);
+            }
+            const tafData = await tafResponse.text();
+            results.taf = tafData.split('\n').filter(line => line.trim());
+            
+            const tafsByAirport = {};
+            results.taf.forEach(taf => {
+                if (taf.length >= 4) {
+                    const airport = taf.substring(0, 4);
+                    if (!tafsByAirport[airport]) {
+                        tafsByAirport[airport] = [];
+                    }
+                    tafsByAirport[airport].push(taf);
+                }
+            });
+
+            results.summaries.taf = [];
+            for (const airport in tafsByAirport) {
+                const summary = await generateSummary(tafsByAirport[airport], 'TAF');
+                results.summaries.taf.push({
+                    airport,
+                    raw: tafsByAirport[airport],
+                    summary
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching TAF data:', error);
+            results.taf = [];
+            results.summaries.taf = [{
+                summary: `Failed to fetch TAF data: ${error.message}`
+            }];
         }
+
+        // Fetch and process PIREP data
+        try {
+            const pirepResponse = await fetch('https://aviationweather.gov/cgi-bin/data/pirep.php?format=raw');
+            if (!pirepResponse.ok) {
+                throw new Error(`PIREP API returned ${pirepResponse.status}: ${pirepResponse.statusText}`);
+            }
+            const pirepData = await pirepResponse.text();
+            const pirepLines = pirepData.split('\n').filter(line => line.trim());
+            
+            results.pirep = pirepLines.filter(line => {
+                const isRelevant = airports.some(airport => {
+                    if (line.includes(airport)) {
+                        return true;
+                    }
+                    
+                    const fixMatch = line.match(/\/OV ([A-Z]{2,3})(\d{2,3})(\d{2,3})/);
+                    if (fixMatch) {
+                        const fix = fixMatch[1];
+                        return airports.some(ap => ap.startsWith(fix));
+                    }
+                    
+                    return false;
+                });
+                return isRelevant;
+            });
+
+            for (const pirep of results.pirep) {
+                const summary = await generateSummary(pirep, 'PIREP');
+                results.summaries.pirep.push({
+                    raw: pirep,
+                    summary
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching PIREP data:', error);
+            results.pirep = [];
+            results.summaries.pirep = [{
+                summary: `Failed to fetch PIREP data: ${error.message}`
+            }];
+        }
+
+        // Fetch and process SIGMET data
+        try {
+            const domesticSigmetResponse = await fetch('https://aviationweather.gov/api/data/airsigmet?format=raw');
+            if (!domesticSigmetResponse.ok) {
+                throw new Error(`Failed to fetch domestic SIGMET data: ${domesticSigmetResponse.status} ${domesticSigmetResponse.statusText}`);
+            }
+            const domesticSigmetData = await domesticSigmetResponse.text();
+            
+            const intlSigmetResponse = await fetch('https://aviationweather.gov/api/data/isigmet?format=raw');
+            if (!intlSigmetResponse.ok) {
+                throw new Error(`Failed to fetch international SIGMET data: ${intlSigmetResponse.status} ${intlSigmetResponse.statusText}`);
+            }
+            const intlSigmetData = await intlSigmetResponse.text();
+            
+            const domesticSigmets = domesticSigmetData.split('\n').filter(line => {
+                const trimmedLine = line.trim();
+                return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
+            });
+
+            const intlSigmets = intlSigmetData.split('\n').filter(line => {
+                const trimmedLine = line.trim();
+                return trimmedLine && !trimmedLine.startsWith('Type:') && !trimmedLine.startsWith('---');
+            });
+
+            results.sigmet = [...domesticSigmets, ...intlSigmets].filter(sigmet => {
+                return airports.some(airport => {
+                    if (sigmet.includes(airport)) {
+                        return true;
+                    }
+
+                    const areaMatch = sigmet.match(/AREA ([A-Z0-9]+)/);
+                    if (areaMatch) {
+                        const area = areaMatch[1];
+                        return airports.some(ap => ap.startsWith(area));
+                    }
+
+                    const latLonMatches = sigmet.match(/[NS]\d{2,4}[EW]\d{3,5}/g);
+                    if (latLonMatches) {
+                        return true; // This is too broad - should add better lat/lon relevance checking
+                    }
+
+                    const firMatch = sigmet.match(/([A-Z]{4}) FIR/);
+                    if (firMatch) {
+                        return airports.some(ap => ap.startsWith(firMatch[1]));
+                    }
+
+                    return false;
+                });
+            });
+
+            for (const sigmet of results.sigmet) {
+                const summary = await generateSummary(sigmet, 'SIGMET');
+                results.summaries.sigmet.push({
+                    raw: sigmet,
+                    summary
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching SIGMET data:', error);
+            results.sigmet = [];
+            results.summaries.sigmet = [{
+                summary: `Failed to fetch SIGMET data: ${error.message}`
+            }];
+        }
+
+        res.json(results);
+    } catch (error) {
+        console.error('Error processing weather request:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            details: error.message
+        });
+    }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
     });
+});
+
+// Catch-all route for client-side routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
 });
