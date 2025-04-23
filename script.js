@@ -1,45 +1,43 @@
 let map;
 let markers = [];
 let flightPath;
-let mapboxToken;
+let mapboxConfig;
 
 // Cache for airport coordinates to reduce API calls
 const airportCoordinatesCache = {};
 
 async function initMap() {
     try {
-        // Fetch the Mapbox token from the server
-        if (!mapboxToken) {
+        // Fetch the Mapbox configuration from the server
+        if (!mapboxConfig) {
             try {
                 const response = await fetch('/api/config');
                 if (!response.ok) {
                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                 }
-                const config = await response.json();
-                mapboxToken = config.mapboxToken;
+                mapboxConfig = await response.json();
+                if (!mapboxConfig.token) {
+                    throw new Error('Mapbox configuration not available');
+                }
             } catch (error) {
                 console.error('Error fetching config:', error);
-                // Fallback to direct token if available in window object
-                if (window.MAPBOX_ACCESS_TOKEN) {
-                    mapboxToken = window.MAPBOX_ACCESS_TOKEN;
-                } else {
-                    throw new Error('Could not get Mapbox token. Please make sure the server is running.');
-                }
+                showError('Map initialization failed. Please check your environment configuration.');
+                return;
             }
         }
 
-        console.log('Initializing map with token:', mapboxToken);
+        console.log('Initializing map with configuration:', mapboxConfig);
         
-        if (!mapboxToken) {
+        if (!mapboxConfig.token) {
             throw new Error('Mapbox access token is not set');
         }
 
-        mapboxgl.accessToken = mapboxToken;
+        mapboxgl.accessToken = mapboxConfig.token;
         map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/outdoors-v12',
-            center: [-98.5795, 39.8283], // Center of the US
-            zoom: 4
+            style: mapboxConfig.style,
+            center: mapboxConfig.center,
+            zoom: mapboxConfig.zoom
         });
 
         // Add navigation controls

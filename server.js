@@ -12,7 +12,10 @@ const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
     console.error('Missing required environment variables:', missingEnvVars.join(', '));
-    process.exit(1);
+    // Don't exit in production, just log the error
+    if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+    }
 }
 
 // Middleware
@@ -21,9 +24,19 @@ app.use(express.json());
 
 // API Routes
 app.get('/api/config', (req, res) => {
-    res.json({
-        mapboxToken: process.env.MAPBOX_ACCESS_TOKEN
-    });
+    // In production, we'll use Netlify's environment variables
+    const mapboxConfig = {
+        token: process.env.MAPBOX_ACCESS_TOKEN,
+        style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/outdoors-v12',
+        center: process.env.MAPBOX_CENTER ? JSON.parse(process.env.MAPBOX_CENTER) : [-98.5795, 39.8283],
+        zoom: process.env.MAPBOX_ZOOM ? parseInt(process.env.MAPBOX_ZOOM) : 4
+    };
+
+    if (!mapboxConfig.token) {
+        return res.status(500).json({ error: 'Mapbox configuration not available' });
+    }
+
+    res.json(mapboxConfig);
 });
 
 // Static files should be served after API routes
