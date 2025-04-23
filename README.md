@@ -83,7 +83,6 @@ npm start
 - Color-coded weather conditions
 - Interactive weather cards
 - Smooth animations and transitions
-- Dark/light mode support
 
 ## 🔍 Weather Conditions
 
