@@ -4,7 +4,7 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Validate environment variables
 const requiredEnvVars = ['GROQ_API_KEY', 'MAPBOX_ACCESS_TOKEN'];
@@ -40,7 +40,13 @@ app.get('/api/config', (req, res) => {
 });
 
 // Static files should be served after API routes
-app.use(express.static(__dirname));
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(__dirname));
+    // Handle client-side routing
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'index.html'));
+    });
+}
 
 async function generateSummary(data, type) {
     try {

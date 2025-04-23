@@ -1,5 +1,3 @@
-const BACKEND_URL = 'https://cloudcompass.onrender.com';
-
 let map;
 let markers = [];
 let flightPath;
@@ -8,12 +6,17 @@ let mapboxConfig;
 // Cache for airport coordinates to reduce API calls
 const airportCoordinatesCache = {};
 
+// Set the backend URL based on environment
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : '';
+
 async function initMap() {
     try {
         // Fetch the Mapbox configuration from the server
         if (!mapboxConfig) {
             try {
-                const response = await fetch('/api/config');
+                const response = await fetch(`${BACKEND_URL}/api/config`);
                 if (!response.ok) {
                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                 }
