@@ -857,3 +857,65 @@ input::placeholder {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Translation widget styles */
+.translate-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.translate-container .goog-te-gadget {
+    margin: 0 !important;
+}
+
+.translate-container .goog-te-gadget-simple {
+    background-color: white !important;
+    border: 1px solid rgba(93, 79, 255, 0.2) !important;
+    border-radius: var(--border-radius) !important;
+    padding: 8px 16px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-speed) ease !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.translate-container .goog-te-gadget-simple:hover {
+    background-color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+.translate-container .goog-te-menu-value {
+    color: var(--text-color) !important;
+    text-decoration: none !important;
+    font-weight: 500 !important;
+}
+
+.translate-container .goog-te-menu-value span {
+    color: var(--primary-color) !important;
+    opacity: 1 !important;
+}
+
+.translate-container .goog-te-menu-value:hover {
+    opacity: 1 !important;
+}
+
+/* RTL support */
+body.translated-rtl {
+    direction: rtl;
+}
+
+body.translated-rtl .weather-card,
+body.translated-rtl .weather-summary,
+body.translated-rtl .map-container {
+    text-align: right;
+}
+
+body.translated-rtl .input-group {
+    flex-direction: row-reverse;
+}
+
+body.translated-rtl .input-help {
+    text-align: right;
+}

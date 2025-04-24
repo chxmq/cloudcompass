@@ -592,7 +592,7 @@ async function getAirportCoordinates(airportCode) {
     return null;
 }
 
-// Initialize the page
+// Listen for language changes and update content
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize all weather cards with empty states
     document.getElementById('metarContent').innerHTML = '<div class="no-data">Enter a flight plan to see METAR reports</div>';
@@ -600,6 +600,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pirepContent').innerHTML = '<div class="no-data">Enter a flight plan to see PIREP reports</div>';
     document.getElementById('sigmetContent').innerHTML = '<div class="no-data">Enter a flight plan to see SIGMET reports</div>';
     document.getElementById('summaryContent').innerHTML = '<div class="no-data">Enter a flight plan to see route summary and weather conditions</div>';
+
+    // Add event listener for language changes
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const target = mutation.target;
+                if (target.classList.contains('translated-ltr') || target.classList.contains('translated-rtl')) {
+                    // Reinitialize any dynamic content that needs to be translated
+                    const routeInput = document.getElementById('routeInput');
+                    if (routeInput.value) {
+                        searchBtn.click();
+                    }
+                }
+            }
+        });
+    });
+
+    // Start observing the body for language changes
+    observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class']
+    });
 
     // Add event listeners
     const searchBtn = document.getElementById('searchBtn');

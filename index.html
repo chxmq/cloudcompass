@@ -8,6 +8,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement(
+                {
+                    pageLanguage: 'en',
+                    includedLanguages: 'en,ar,zh-CN,fr,de,hi,it,ja,ko,pt,ru,es,th,vi',
+                    layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                    autoDisplay: false,
+                    gaTrack: false
+                },
+                'google_translate_element'
+            );
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <style>
         #map {
             width: 100%;
@@ -30,6 +45,37 @@
             text-align: center;
             color: #666;
         }
+        .goog-te-gadget {
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 0.9em !important;
+        }
+        .goog-te-gadget-simple {
+            background-color: var(--card-background) !important;
+            border: 1px solid var(--subtle-border-color) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 8px 16px !important;
+            cursor: pointer !important;
+            transition: all var(--transition-speed) ease !important;
+        }
+        .goog-te-gadget-simple:hover {
+            background-color: rgba(93, 79, 255, 0.05) !important;
+        }
+        .goog-te-menu-value {
+            color: var(--text-color) !important;
+            text-decoration: none !important;
+        }
+        .goog-te-menu-value span {
+            color: var(--primary-color) !important;
+        }
+        .goog-te-menu-value:hover {
+            text-decoration: none !important;
+        }
+        .goog-te-banner-frame {
+            display: none !important;
+        }
+        body {
+            top: 0 !important;
+        }
     </style>
 </head>
 <body>
@@ -37,6 +83,7 @@
         <header>
             <h1><i class="fas fa-cloud-sun"></i> Aviation Weather Dashboard</h1>
             <p class="subtitle">Your real-time weather companion for safe flights</p>
+            <div id="google_translate_element" class="translate-container"></div>
         </header>
         
         <div class="search-container">
@@ -64,7 +111,7 @@
 
                 <div class="weather-card" id="tafCard">
                     <h2>
-                        <span><i class="fas fa-calendar-alt"></i> TAF</span>
+                        <span class="notranslate" data-google-translate-ignore><i class="fas fa-calendar-alt"></i>TAF</span>
                         <i class="fas fa-clock"></i>
                     </h2>
                     <div class="weather-content" id="tafContent">
