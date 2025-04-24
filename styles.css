@@ -912,3 +912,138 @@ body.translated-rtl .input-group {
 body.translated-rtl .input-help {
     text-align: right;
 }
+
+/* Floating Notes Panel Styles */
+.floating-notes-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.floating-notes-icon {
+    width: 50px;
+    height: 50px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(93, 79, 255, 0.3);
+    transition: all var(--transition-speed) ease;
+}
+
+.floating-notes-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(93, 79, 255, 0.4);
+}
+
+.floating-notes-icon i {
+    color: white;
+    font-size: 1.5em;
+}
+
+.floating-notes-panel {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 400px;
+    background-color: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--subtle-border-color);
+}
+
+.floating-notes-panel.active {
+    display: flex;
+}
+
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.notes-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.notes-header i {
+    font-size: 1.2em;
+}
+
+.close-notes-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 1.2em;
+    transition: transform var(--transition-speed) ease;
+}
+
+.close-notes-btn:hover {
+    transform: rotate(90deg);
+}
+
+.notes-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#flightNotes {
+    width: 100%;
+    min-height: 300px;
+    padding: 15px;
+    border: 1px solid var(--subtle-border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-background);
+    color: var(--text-color);
+    font-family: 'Poppins', sans-serif;
+    font-size: 1em;
+    resize: vertical;
+    transition: border-color var(--transition-speed) ease;
+    line-height: 1.6;
+}
+
+#flightNotes:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.save-notes-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color var(--transition-speed) ease;
+}
+
+.save-notes-btn:hover {
+    background-color: var(--primary-color-dark);
+}
+
+.save-notes-btn i {
+    font-size: 1.1em;
+}

@@ -685,6 +685,100 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize Mapbox map
     initMap();
+
+    // Notes functionality
+    const flightNotes = document.getElementById('flightNotes');
+    const saveNotesBtn = document.getElementById('saveNotesBtn');
+    const notesIcon = document.getElementById('notesIcon');
+    const notesPanel = document.getElementById('notesPanel');
+    const closeNotesBtn = document.getElementById('closeNotesBtn');
+
+    // Load saved notes
+    const savedNotes = localStorage.getItem('flightNotes');
+    if (savedNotes) {
+        flightNotes.value = savedNotes;
+    }
+
+    // Toggle notes panel
+    notesIcon.addEventListener('click', () => {
+        notesPanel.classList.add('active');
+    });
+
+    closeNotesBtn.addEventListener('click', () => {
+        notesPanel.classList.remove('active');
+    });
+
+    // Make notes panel draggable
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    const notesHeader = notesPanel.querySelector('.notes-header');
+
+    notesHeader.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    function dragStart(e) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+
+        if (e.target === notesHeader || e.target.parentNode === notesHeader) {
+            isDragging = true;
+        }
+    }
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            setTranslate(currentX, currentY, notesPanel);
+        }
+    }
+
+    function dragEnd() {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+    }
+
+    function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    }
+
+    // Save notes
+    saveNotesBtn.addEventListener('click', () => {
+        const notes = flightNotes.value;
+        localStorage.setItem('flightNotes', notes);
+        
+        // Show save confirmation
+        const originalText = saveNotesBtn.innerHTML;
+        saveNotesBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+        saveNotesBtn.style.backgroundColor = '#4CAF50';
+        
+        setTimeout(() => {
+            saveNotesBtn.innerHTML = originalText;
+            saveNotesBtn.style.backgroundColor = '';
+        }, 2000);
+    });
+
+    // Auto-save notes when typing (with debounce)
+    let saveTimeout;
+    flightNotes.addEventListener('input', () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            localStorage.setItem('flightNotes', flightNotes.value);
+        }, 1000);
+    });
 });
 
 function showError(message) {
