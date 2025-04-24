@@ -51,16 +51,16 @@ async function generateSummary(data, type) {
         let prompt;
         switch(type) {
             case 'METAR':
-                prompt = "Translate this METAR into summary. Focus on current conditions only: ";
+                prompt = "Translate this METAR into simple English. Focus on current conditions only: ";
                 break;
             case 'TAF':
-                prompt = "Translate this TAF forecast into summary. What's the weather outlook? ";
+                prompt = "Translate this TAF forecast into simple English. What's the weather outlook? ";
                 break;
             case 'PIREP':
-                prompt = "Explain this pilot report in summary. What did the pilot observe? ";
+                prompt = "Explain this pilot report in simple terms. What did the pilot observe? ";
                 break;
             case 'SIGMET':
-                prompt = "Explain this SIGMET in form of summary. What's the significant weather warning? ";
+                prompt = "Explain this SIGMET in simple terms. What's the significant weather warning? ";
                 break;
             default:
                 prompt = "Explain this weather report in simple terms: ";
@@ -81,7 +81,7 @@ async function generateSummary(data, type) {
                 model: "llama3-70b-8192",
                 messages: [{
                     role: "system",
-                    content: "You are a helpful weather interpreter. Provide clear, No Bold Text to be provided, simple explanations of aviation weather reports in form of a summary. No technical jargon unless necessary. Keep responses concise and focused on the most important information for pilots. Pilot's knows what the meaning of each term is, just give them summary. "
+                    content: "You are a helpful weather interpreter. Provide clear, No Bold Text to be provided, simple explanations of aviation weather reports in plain English. No technical jargon unless necessary. Keep responses concise and focused on the most important information for pilots."
                 }, {
                     role: "user",
                     content: `${prompt}\n\n${data}`

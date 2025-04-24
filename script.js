@@ -6,93 +6,166 @@ let mapboxConfig;
 // Cache for airport coordinates to reduce API calls
 const airportCoordinatesCache = {};
 
+// Configuration object
+const config = {
+    apiKey: '', // Will be set from environment variable or configuration
+    apiEndpoint: 'https://airlabs.co/api/v9'
+};
+
 // Set the backend URL based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'
     : window.location.origin;
 
-async function initMap() {
-    try {
-        // Fetch the Mapbox configuration from the server
-        if (!mapboxConfig) {
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/config`);
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-                mapboxConfig = await response.json();
-                if (!mapboxConfig.token) {
-                    throw new Error('Mapbox configuration not available');
-                }
-            } catch (error) {
-                console.error('Error fetching config:', error);
-                showError('Map initialization failed. Please check your environment configuration.');
-                return;
-            }
-        }
+// Add a simple airport coordinates database
+const airportCoordinates = {
+    // Major International Airports
+    'KATL': { lat: 33.6367, lng: -84.4281, name: 'Hartsfield-Jackson Atlanta International' },
+    'KORD': { lat: 41.9786, lng: -87.9048, name: "O'Hare International" },
+    'KDFW': { lat: 32.8969, lng: -97.0381, name: 'Dallas/Fort Worth International' },
+    'KDEN': { lat: 39.8617, lng: -104.6731, name: 'Denver International' },
+    'KJFK': { lat: 40.6397, lng: -73.7789, name: 'John F. Kennedy International' },
+    'KLAX': { lat: 33.9425, lng: -118.4081, name: 'Los Angeles International' },
+    'KMIA': { lat: 25.7933, lng: -80.2906, name: 'Miami International' },
+    'KLAS': { lat: 36.0840, lng: -115.1537, name: 'Las Vegas Harry Reid International' },
+    'KSFO': { lat: 37.6189, lng: -122.3750, name: 'San Francisco International' },
+    'KPHX': { lat: 33.4342, lng: -112.0119, name: 'Phoenix Sky Harbor International' },
+    'KIAH': { lat: 29.9844, lng: -95.3414, name: 'George Bush Intercontinental' },
+    'KMCO': { lat: 28.4294, lng: -81.3089, name: 'Orlando International' },
+    'KSEA': { lat: 47.4490, lng: -122.3093, name: 'Seattle-Tacoma International' },
+    'KEWR': { lat: 40.6895, lng: -74.1745, name: 'Newark Liberty International' },
+    'KBOS': { lat: 42.3656, lng: -71.0096, name: 'Boston Logan International' },
 
-        console.log('Initializing map with configuration:', mapboxConfig);
-        
-        if (!mapboxConfig.token) {
-            throw new Error('Mapbox access token is not set');
-        }
+    // Major Regional Airports
+    'KMDW': { lat: 41.7868, lng: -87.7522, name: 'Chicago Midway International' },
+    'KBWI': { lat: 39.1754, lng: -76.6682, name: 'Baltimore/Washington International' },
+    'KSLC': { lat: 40.7884, lng: -111.9778, name: 'Salt Lake City International' },
+    'KSAN': { lat: 32.7336, lng: -117.1897, name: 'San Diego International' },
+    'KTPA': { lat: 27.9755, lng: -82.5332, name: 'Tampa International' },
+    'KPDX': { lat: 45.5898, lng: -122.5951, name: 'Portland International' },
+    'KDET': { lat: 42.4095, lng: -83.0097, name: 'Detroit Metropolitan' },
+    'KCLT': { lat: 35.2141, lng: -80.9431, name: 'Charlotte Douglas International' },
+    'KPHF': { lat: 37.1319, lng: -76.4930, name: 'Newport News/Williamsburg International' },
+    'KMSP': { lat: 44.8820, lng: -93.2218, name: 'Minneapolis-Saint Paul International' },
 
-        mapboxgl.accessToken = mapboxConfig.token;
-        map = new mapboxgl.Map({
-            container: 'map',
-            style: mapboxConfig.style,
-            center: mapboxConfig.center,
-            zoom: mapboxConfig.zoom
-        });
+    // Secondary Airports
+    'KOAK': { lat: 37.7214, lng: -122.2208, name: 'Oakland International' },
+    'KSJC': { lat: 37.3639, lng: -121.9289, name: 'Norman Y. Mineta San Jose International' },
+    'KBUR': { lat: 34.2007, lng: -118.3590, name: 'Hollywood Burbank' },
+    'KONT': { lat: 34.0558, lng: -117.6011, name: 'Ontario International' },
+    'KAUS': { lat: 30.1975, lng: -97.6664, name: 'Austin-Bergstrom International' },
+    'KSAT': { lat: 29.5337, lng: -98.4690, name: 'San Antonio International' },
+    'KDAL': { lat: 32.8481, lng: -96.8518, name: 'Dallas Love Field' },
+    'KHOU': { lat: 29.6454, lng: -95.2789, name: 'William P. Hobby' },
+    'KSNA': { lat: 33.6762, lng: -117.8677, name: 'John Wayne Airport' },
+    'KPBI': { lat: 26.6832, lng: -80.0956, name: 'Palm Beach International' },
 
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl());
+    // Popular Regional Airports
+    'KFLL': { lat: 26.0726, lng: -80.1527, name: 'Fort Lauderdale-Hollywood International' },
+    'KRDU': { lat: 35.8776, lng: -78.7875, name: 'Raleigh-Durham International' },
+    'KCVG': { lat: 39.0489, lng: -84.6678, name: 'Cincinnati/Northern Kentucky International' },
+    'KMKE': { lat: 42.9472, lng: -87.8966, name: 'Milwaukee Mitchell International' },
+    'KMEM': { lat: 35.0424, lng: -89.9767, name: 'Memphis International' },
+    'KPIT': { lat: 40.4915, lng: -80.2329, name: 'Pittsburgh International' },
+    'KIND': { lat: 39.7173, lng: -86.2944, name: 'Indianapolis International' },
+    'KCLE': { lat: 41.4117, lng: -81.8497, name: 'Cleveland Hopkins International' },
+    'KCMH': { lat: 39.9980, lng: -82.8918, name: 'John Glenn Columbus International' },
+    'KBNA': { lat: 36.1245, lng: -86.6782, name: 'Nashville International' }
+};
 
-        // Add error handling for map load
-        map.on('load', () => {
-            console.log('Map loaded successfully');
-            // Hide loading message
-            const loadingElement = document.querySelector('.map-loading');
-            if (loadingElement) {
-                loadingElement.style.display = 'none';
-            }
-        });
+// Add US state boundaries data (simplified)
+const usStatesData = {
+    // Simplified coordinates for continental US outline
+    outline: [
+        [-125, 48], [-123, 48], [-122, 47], [-120, 45], [-117, 43], 
+        [-116, 41], [-114, 39], [-112, 37], [-111, 35], [-106, 32],
+        [-97, 25], [-80, 25], [-75, 35], [-69, 44], [-67, 45],
+        [-70, 43], [-75, 39], [-77, 37], [-81, 31], [-83, 30],
+        [-87, 30], [-89, 30], [-94, 29], [-97, 28], [-100, 29],
+        [-104, 31], [-107, 32], [-111, 31], [-114, 32], [-117, 33],
+        [-120, 34], [-123, 38], [-124, 40], [-124, 42], [-125, 46],
+        [-125, 48]
+    ]
+};
 
-        map.on('error', (e) => {
-            console.error('Map error:', e);
-            showError('Failed to load map. Please check console for details.');
-            // Hide loading message on error
-            const loadingElement = document.querySelector('.map-loading');
-            if (loadingElement) {
-                loadingElement.style.display = 'none';
-            }
-        });
+function initMap() {
+    console.log('Initializing map...');
+    
+    // Initialize the map centered on US
+    map = L.map('map').setView([39.8283, -98.5795], 4);
 
-    } catch (error) {
-        console.error('Error initializing map:', error);
-        showError('Failed to initialize map. Please check console for details.');
-        // Hide loading message on error
-        const loadingElement = document.querySelector('.map-loading');
-        if (loadingElement) {
-            loadingElement.style.display = 'none';
-        }
-    }
+    // Add the tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    }).addTo(map);
+
+    // Create and add the legend
+    const legend = L.control({ position: 'bottomright' });
+    
+    legend.onAdd = function(map) {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.innerHTML = `
+            <div class="legend-item">
+                <div class="legend-dot departure"></div>
+                <div class="legend-label">Departure Airport</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot waypoint"></div>
+                <div class="legend-label">Layover/Waypoint</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot arrival"></div>
+                <div class="legend-label">Arrival Airport</div>
+            </div>
+        `;
+        return div;
+    };
+    
+    legend.addTo(map);
+
+    // Ensure proper sizing
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
 }
 
 function parseFlightPlan(flightPlan) {
+    console.log('Parsing flight plan:', flightPlan);
     const parts = flightPlan.split(',');
     const waypoints = [];
     
+    // Handle single waypoint case
+    if (parts.length === 2) {
+        const icao = parts[0].trim().toUpperCase();
+        const altitude = parseInt(parts[1].trim());
+        
+        if (!icao || !/^[A-Z]{3,4}$/.test(icao)) {
+            throw new Error(`Invalid airport code: ${icao}`);
+        }
+        
+        if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
+            throw new Error(`Invalid altitude: ${parts[1]}`);
+        }
+        
+        waypoints.push({
+            icao,
+            altitude
+        });
+        return waypoints;
+    }
+    
+    // Handle multiple waypoints
     if (parts.length % 2 !== 0) {
         throw new Error('Invalid flight plan format. Must contain pairs of airport codes and altitudes.');
     }
     
     for (let i = 0; i < parts.length; i += 2) {
-        const airport = parts[i].trim();
+        const icao = parts[i].trim().toUpperCase();
         const altitude = parseInt(parts[i + 1].trim());
         
-        if (!airport || !/^[A-Z]{3,4}$/.test(airport)) {
-            throw new Error(`Invalid airport code: ${airport}`);
+        if (!icao || !/^[A-Z]{3,4}$/.test(icao)) {
+            throw new Error(`Invalid airport code: ${icao}`);
         }
         
         if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
@@ -100,11 +173,12 @@ function parseFlightPlan(flightPlan) {
         }
         
         waypoints.push({
-            airport,
+            icao,
             altitude
         });
     }
     
+    console.log('Parsed waypoints:', waypoints);
     return waypoints;
 }
 
@@ -115,7 +189,7 @@ async function fetchWeatherData(flightPlan) {
         throw new Error('Invalid flight plan format. Please use format: KPHX,10000,VIDP,1000');
     }
 
-    const airports = waypoints.map(wp => wp.airport);
+    const airports = waypoints.map(wp => wp.icao);
     
     try {
         const response = await fetch(`${BACKEND_URL}/api/weather?route=${encodeURIComponent(flightPlan)}`);
@@ -404,7 +478,7 @@ function generateWeatherSummary(weatherData, waypoints) {
     let summary = '<div class="summary-content">';
 
     waypoints.forEach((waypoint, index) => {
-        const metar = weatherData.metar.find(m => m.startsWith(waypoint.airport));
+        const metar = weatherData.metar.find(m => m.startsWith(waypoint.icao));
         let weatherCondition = 'vfr';
         let weatherLabel = 'VFR';
         
@@ -422,13 +496,13 @@ function generateWeatherSummary(weatherData, waypoints) {
 
         summary += `
             <div class="summary-item ${weatherCondition}">
-                <h3>${waypoint.airport} <span style="opacity: 0.8">${waypoint.altitude.toLocaleString()} ft</span></h3>
+                <h3>${waypoint.icao} <span style="opacity: 0.8">${waypoint.altitude.toLocaleString()} ft</span></h3>
                 <div class="weather-condition-label">${weatherLabel}</div>
                 <p>Wind: ${metar ? getWindInfo(metar) : 'N/A'}</p>
                 <p>Visibility: ${metar ? getVisibilityInfo(metar) : 'N/A'}</p>
                 ${index < waypoints.length - 1 ? `
                     <div class="next-waypoint">
-                        Next: ${waypoints[index + 1].airport} at ${waypoints[index + 1].altitude.toLocaleString()} ft
+                        Next: ${waypoints[index + 1].icao} at ${waypoints[index + 1].altitude.toLocaleString()} ft
                     </div>
                 ` : ''}
             </div>
@@ -463,137 +537,291 @@ function calculateTotalDistance(waypoints) {
     return 'N/A';
 }
 
-async function updateMap(waypoints, weatherData) {
-    // Clear existing markers and flight path
-    markers.forEach(marker => marker.remove());
-    markers = [];
-    if (flightPath) {
-        flightPath.remove();
-    }
-
-    let bounds = new mapboxgl.LngLatBounds();
-
-    for (let i = 0; i < waypoints.length; i++) {
-        const waypoint = waypoints[i];
-        const coordinates = await getAirportCoordinates(waypoint.airport);
-        
-        if (coordinates) {
-            const [lng, lat] = coordinates;
-            bounds.extend([lng, lat]);
-
-            // Create marker
-            const marker = new mapboxgl.Marker({
-                color: '#FF0000',
-                scale: 0.8
-            })
-                .setLngLat([lng, lat])
-                .setPopup(new mapboxgl.Popup({ offset: 25 })
-                    .setHTML(`<strong>${waypoint.airport}</strong><br>Altitude: ${waypoint.altitude}ft`))
-                .addTo(map);
-
-            markers.push(marker);
-
-            // Add weather circle
-            if (weatherData && weatherData[waypoint.airport]) {
-                const weather = weatherData[waypoint.airport];
-                const radius = 50000; // 50km radius
-                
-                map.addLayer({
-                    id: `weather-circle-${waypoint.airport}`,
-                    type: 'circle',
-                    source: {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            properties: {},
-                            geometry: {
-                                type: 'Point',
-                                coordinates: [lng, lat]
-                            }
-                        }
-                    },
-                    paint: {
-                        'circle-radius': radius,
-                        'circle-color': '#FF0000',
-                        'circle-opacity': 0.1,
-                        'circle-stroke-width': 1,
-                        'circle-stroke-color': '#FF0000'
-                    }
-                });
-            }
-        }
-    }
-
-    // Add flight path
-    if (waypoints.length > 1) {
-        const coordinates = [];
-        for (const waypoint of waypoints) {
-            const coords = await getAirportCoordinates(waypoint.airport);
-            if (coords) {
-                coordinates.push(coords);
-            }
-        }
-
-        if (coordinates.length > 1) {
-            map.addLayer({
-                id: 'flight-path',
-                type: 'line',
-                source: {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: {
-                            type: 'LineString',
-                            coordinates: coordinates
-                        }
-                    }
-                },
-                paint: {
-                    'line-color': '#FF0000',
-                    'line-width': 2,
-                    'line-dasharray': [2, 2]
-                }
-            });
-        }
-    }
-
-    // Fit map to bounds
-    if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, {
-            padding: 50
-        });
+// Initialize API key
+async function initializeApiKey() {
+    try {
+        const response = await fetch('/api/config');
+        const data = await response.json();
+        config.apiKey = data.apiKey;
+    } catch (error) {
+        console.error('Failed to initialize API key:', error);
+        // Fallback to local database only
     }
 }
 
+// Update the getAirportCoordinates function to use AirLabs API
 async function getAirportCoordinates(airportCode) {
-    // Check cache first
+    if (!airportCode) {
+        console.error('Airport code is undefined');
+        return null;
+    }
+
+    // First check cache
     if (airportCoordinatesCache[airportCode]) {
         return airportCoordinatesCache[airportCode];
     }
 
     try {
-        // Use OpenSky Network's API for airport coordinates
-        const response = await fetch(`https://opensky-network.org/api/airports?icao=${airportCode}`);
+        if (!config.apiKey) {
+            // If no API key, fallback to local database
+            if (airportCoordinates[airportCode]) {
+                return airportCoordinates[airportCode];
+            }
+            throw new Error('No API key configured');
+        }
+
+        // Using AirLabs API
+        const response = await fetch(`${config.apiEndpoint}/airports?iata_code=${airportCode}&api_key=${config.apiKey}`);
         const data = await response.json();
         
-        if (data && data.length > 0) {
-            const airport = data[0];
-            const coordinates = [airport.longitude, airport.latitude];
+        if (data.error) {
+            throw new Error(`API Error: ${data.error.message}`);
+        }
+
+        if (data.response && data.response.length > 0) {
+            const airport = data.response[0];
+            const coordinates = {
+                lat: parseFloat(airport.lat),
+                lng: parseFloat(airport.lng),
+                name: airport.name
+            };
             
             // Cache the result
             airportCoordinatesCache[airportCode] = coordinates;
             return coordinates;
+        } else {
+            // Fallback to local database if API doesn't have the airport
+            if (airportCoordinates[airportCode]) {
+                return airportCoordinates[airportCode];
+            }
+            throw new Error(`No data found for airport ${airportCode}`);
         }
     } catch (error) {
         console.error(`Error fetching coordinates for ${airportCode}:`, error);
+        
+        // Fallback to local database if API call fails
+        if (airportCoordinates[airportCode]) {
+            return airportCoordinates[airportCode];
+        }
+        return null;
     }
+}
+
+function drawGrid(ctx, width, height, minLat, maxLat, minLng, maxLng) {
+    // Draw light grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+
+    // Draw latitude lines every 5 degrees
+    for (let lat = Math.floor(minLat/5)*5; lat <= maxLat; lat += 5) {
+        ctx.beginPath();
+        const y = height - ((lat - minLat) / (maxLat - minLat)) * height;
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+        
+        // Label latitude
+        ctx.fillStyle = '#999';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${lat}°N`, 5, y - 5);
+    }
+
+    // Draw longitude lines every 5 degrees
+    for (let lng = Math.floor(minLng/5)*5; lng <= maxLng; lng += 5) {
+        ctx.beginPath();
+        const x = ((lng - minLng) / (maxLng - minLng)) * width;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+        
+        // Label longitude
+        ctx.fillStyle = '#999';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${lng}°W`, x, height - 5);
+    }
+}
+
+function drawUSMap(ctx, width, height, minLat, maxLat, minLng, maxLng) {
+    // Function to convert lat/lng to canvas coordinates
+    function projectPoint(lat, lng) {
+        const x = ((lng - minLng) / (maxLng - minLng)) * width;
+        const y = height - ((lat - minLat) / (maxLat - minLat)) * height;
+        return [x, y];
+    }
+
+    // Draw US outline
+    ctx.beginPath();
+    usStatesData.outline.forEach((point, index) => {
+        const [x, y] = projectPoint(point[1], point[0]);
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.closePath();
     
-    return null;
+    // Fill with a light color
+    ctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
+    ctx.fill();
+    
+    // Draw outline
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+function drawMapBackground(ctx, width, height, bounds) {
+    // Draw base background
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw water background
+    ctx.fillStyle = '#e6f3ff';
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw US map
+    drawUSMap(ctx, width, height, bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng);
+
+    // Draw subtle gradient overlay
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+    gradient.addColorStop(1, 'rgba(240, 240, 255, 0.1)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+}
+
+function drawFlightPath(waypoints) {
+    console.log('Drawing flight path for waypoints:', waypoints);
+    
+    // Clear existing markers and path
+    if (flightPath) {
+        map.removeLayer(flightPath);
+    }
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+
+    // Filter out waypoints without valid coordinates
+    const validWaypoints = waypoints.filter(wp => wp.lat && wp.lng);
+    console.log('Valid waypoints:', validWaypoints);
+    
+    if (validWaypoints.length === 0) {
+        console.error('No valid waypoints to display');
+        return;
+    }
+
+    // Create the flight path
+    const pathCoordinates = validWaypoints.map(wp => [wp.lat, wp.lng]);
+    flightPath = L.polyline(pathCoordinates, {
+        color: 'rgba(59, 130, 246, 0.8)',
+        weight: 3,
+        dashArray: '5, 5'
+    }).addTo(map);
+
+    // Add markers for each waypoint
+    validWaypoints.forEach((waypoint, index) => {
+        // Determine marker type based on position
+        let markerType;
+        if (index === 0) {
+            markerType = 'departure';
+        } else if (index === validWaypoints.length - 1) {
+            markerType = 'arrival';
+        } else {
+            markerType = 'waypoint';
+        }
+        
+        // Create custom icon
+        const icon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+                <div class="marker-container">
+                    <div class="marker ${markerType}"></div>
+                    <div class="marker-label">
+                        <div class="airport-code">${waypoint.icao}</div>
+                        <div class="altitude">${(waypoint.altitude/1000).toFixed(1)}K ft</div>
+                    </div>
+                </div>
+            `,
+            iconSize: [60, 40],
+            iconAnchor: [30, 20]
+        });
+
+        // Add marker to map
+        const marker = L.marker([waypoint.lat, waypoint.lng], {icon}).addTo(map);
+        markers.push(marker);
+    });
+
+    // Fit map bounds to show all waypoints
+    if (validWaypoints.length === 1) {
+        // For single waypoint, center on it with a reasonable zoom level
+        map.setView([validWaypoints[0].lat, validWaypoints[0].lng], 10);
+    } else {
+        // For multiple waypoints, fit bounds to show all
+        const bounds = L.latLngBounds(validWaypoints.map(wp => [wp.lat, wp.lng]));
+        map.fitBounds(bounds, {padding: [50, 50]});
+    }
+}
+
+// Update the updateMap function to handle the waypoints correctly
+async function updateMap(waypoints, weatherData) {
+    console.log('Updating map with waypoints:', waypoints);
+    try {
+        // Get coordinates for all waypoints
+        const waypointsWithCoords = [];
+        for (const waypoint of waypoints) {
+            console.log('Getting coordinates for:', waypoint.icao);
+            const coords = await getAirportCoordinates(waypoint.icao);
+            console.log('Coordinates received:', coords);
+            if (coords) {
+                waypointsWithCoords.push({
+                    ...waypoint,
+                    ...coords
+                });
+            }
+        }
+
+        console.log('Waypoints with coordinates:', waypointsWithCoords);
+        
+        if (waypointsWithCoords.length === 0) {
+            console.error('No valid waypoints found');
+            showError('No valid waypoints found. Please check the airport code.');
+            return;
+        }
+
+        // Draw the flight path
+        drawFlightPath(waypointsWithCoords);
+    } catch (error) {
+        console.error('Error updating map:', error);
+        showError('Failed to update map visualization');
+    }
+}
+
+// Add a function to clear all previous data
+function clearAllData() {
+    // Clear map data
+    if (flightPath) {
+        map.removeLayer(flightPath);
+    }
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    
+    // Clear weather cards
+    document.getElementById('metarContent').innerHTML = '<div class="no-data">Loading METAR reports...</div>';
+    document.getElementById('tafContent').innerHTML = '<div class="no-data">Loading TAF reports...</div>';
+    document.getElementById('pirepContent').innerHTML = '<div class="no-data">Loading PIREP reports...</div>';
+    document.getElementById('sigmetContent').innerHTML = '<div class="no-data">Loading SIGMET reports...</div>';
+    
+    // Clear route summary
+    document.getElementById('summaryContent').innerHTML = '<div class="no-data">Loading route summary...</div>';
 }
 
 // Listen for language changes and update content
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeApiKey();
+    initMap();
+    
     // Initialize all weather cards with empty states
     document.getElementById('metarContent').innerHTML = '<div class="no-data">Enter a flight plan to see METAR reports</div>';
     document.getElementById('tafContent').innerHTML = '<div class="no-data">Enter a flight plan to see TAF reports</div>';
@@ -665,9 +893,11 @@ document.addEventListener('DOMContentLoaded', () => {
             searchBtn.classList.add('loading');
             searchBtn.disabled = true;
             
+            // Clear previous data before fetching new data
+            clearAllData();
+            
             const data = await fetchWeatherData(routeInput);
             updateUI(data);
-            await updateMap(data.waypoints, data.weatherData);
         } catch (error) {
             showError(error.message);
         } finally {
@@ -681,103 +911,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') {
             searchBtn.click();
         }
-    });
-
-    // Initialize Mapbox map
-    initMap();
-
-    // Notes functionality
-    const flightNotes = document.getElementById('flightNotes');
-    const saveNotesBtn = document.getElementById('saveNotesBtn');
-    const notesIcon = document.getElementById('notesIcon');
-    const notesPanel = document.getElementById('notesPanel');
-    const closeNotesBtn = document.getElementById('closeNotesBtn');
-
-    // Load saved notes
-    const savedNotes = localStorage.getItem('flightNotes');
-    if (savedNotes) {
-        flightNotes.value = savedNotes;
-    }
-
-    // Toggle notes panel
-    notesIcon.addEventListener('click', () => {
-        notesPanel.classList.add('active');
-    });
-
-    closeNotesBtn.addEventListener('click', () => {
-        notesPanel.classList.remove('active');
-    });
-
-    // Make notes panel draggable
-    let isDragging = false;
-    let currentX;
-    let currentY;
-    let initialX;
-    let initialY;
-    let xOffset = 0;
-    let yOffset = 0;
-
-    const notesHeader = notesPanel.querySelector('.notes-header');
-
-    notesHeader.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
-
-    function dragStart(e) {
-        initialX = e.clientX - xOffset;
-        initialY = e.clientY - yOffset;
-
-        if (e.target === notesHeader || e.target.parentNode === notesHeader) {
-            isDragging = true;
-        }
-    }
-
-    function drag(e) {
-        if (isDragging) {
-            e.preventDefault();
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-
-            xOffset = currentX;
-            yOffset = currentY;
-
-            setTranslate(currentX, currentY, notesPanel);
-        }
-    }
-
-    function dragEnd() {
-        initialX = currentX;
-        initialY = currentY;
-        isDragging = false;
-    }
-
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
-    }
-
-    // Save notes
-    saveNotesBtn.addEventListener('click', () => {
-        const notes = flightNotes.value;
-        localStorage.setItem('flightNotes', notes);
-        
-        // Show save confirmation
-        const originalText = saveNotesBtn.innerHTML;
-        saveNotesBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
-        saveNotesBtn.style.backgroundColor = '#4CAF50';
-        
-        setTimeout(() => {
-            saveNotesBtn.innerHTML = originalText;
-            saveNotesBtn.style.backgroundColor = '';
-        }, 2000);
-    });
-
-    // Auto-save notes when typing (with debounce)
-    let saveTimeout;
-    flightNotes.addEventListener('input', () => {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            localStorage.setItem('flightNotes', flightNotes.value);
-        }, 1000);
     });
 });
 
@@ -794,4 +927,117 @@ function showError(message) {
     
     searchContainer.appendChild(errorDiv);
     setTimeout(() => errorDiv.remove(), 5000);
-} 
+}
+
+// Notes functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const notesButton = document.getElementById('notesButton');
+    const notesPanel = document.querySelector('.notes-panel');
+    const closeNotes = document.querySelector('.close-notes');
+    const notesTextarea = document.getElementById('notesTextarea');
+    const notesStatus = document.querySelector('.notes-status');
+    const notesHeader = document.querySelector('.notes-header');
+    
+    // Load saved notes
+    const savedNotes = localStorage.getItem('flightNotes');
+    if (savedNotes) {
+        notesTextarea.value = savedNotes;
+    }
+    
+    // Load saved position
+    const savedPosition = localStorage.getItem('notesPosition');
+    if (savedPosition) {
+        const { x, y } = JSON.parse(savedPosition);
+        notesPanel.style.left = `${x}px`;
+        notesPanel.style.top = `${y}px`;
+        notesPanel.style.right = 'auto';
+        notesPanel.style.bottom = 'auto';
+    }
+    
+    // Toggle notes panel
+    notesButton.addEventListener('click', () => {
+        notesPanel.classList.toggle('show');
+    });
+    
+    // Close notes panel
+    closeNotes.addEventListener('click', () => {
+        notesPanel.classList.remove('show');
+    });
+    
+    // Auto-save notes
+    let saveTimeout;
+    notesTextarea.addEventListener('input', () => {
+        clearTimeout(saveTimeout);
+        notesStatus.textContent = 'Saving...';
+        
+        saveTimeout = setTimeout(() => {
+            localStorage.setItem('flightNotes', notesTextarea.value);
+            notesStatus.textContent = 'Auto-saved';
+            
+            // Show saved status briefly
+            setTimeout(() => {
+                notesStatus.style.opacity = '0.7';
+            }, 2000);
+        }, 1000);
+    });
+    
+    // Dragging functionality
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    notesHeader.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    function dragStart(e) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+
+        if (e.target === notesHeader || e.target === notesHeader.querySelector('h3')) {
+            isDragging = true;
+        }
+    }
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+            
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            setTranslate(currentX, currentY, notesPanel);
+        }
+    }
+
+    function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+        
+        // Save position
+        const rect = notesPanel.getBoundingClientRect();
+        localStorage.setItem('notesPosition', JSON.stringify({
+            x: rect.left,
+            y: rect.top
+        }));
+    }
+
+    function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    }
+    
+    // Close notes panel when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
+            notesPanel.classList.remove('show');
+        }
+    });
+}); 

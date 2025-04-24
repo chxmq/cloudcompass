@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement(
@@ -153,29 +156,24 @@
                 <div id="summaryContent"></div>
             </div>
         </div>
-
-        <!-- Floating Notes Panel -->
-        <div class="floating-notes-container">
-            <div class="floating-notes-icon" id="notesIcon">
-                <i class="fas fa-sticky-note"></i>
+    </div>
+    <div class="notes-container">
+        <button id="notesButton" class="notes-button">
+            <i class="fas fa-sticky-note"></i>
+        </button>
+        <div class="notes-panel">
+            <div class="notes-header">
+                <h3><i class="fas fa-pen"></i> Flight Notes</h3>
+                <button class="close-notes"><i class="fas fa-times"></i></button>
             </div>
-            <div class="floating-notes-panel" id="notesPanel">
-                <div class="notes-header">
-                    <h3><i class="fas fa-sticky-note"></i> Flight Notes</h3>
-                    <button class="close-notes-btn" id="closeNotesBtn">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="notes-content">
-                    <textarea id="flightNotes" placeholder="Add your flight notes here..."></textarea>
-                    <button id="saveNotesBtn" class="save-notes-btn">
-                        <i class="fas fa-save"></i> Save Notes
-                    </button>
-                </div>
-            </div>
+            <textarea id="notesTextarea" placeholder="Type your notes here..."></textarea>
+            <div class="notes-status">Auto-saved</div>
         </div>
     </div>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
     <script src="script.js"></script>
 </body>
 </html> 
