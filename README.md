@@ -15,6 +15,8 @@ A modern, real-time aviation weather dashboard that provides comprehensive weath
 - **Interactive Map**: Visualize flight paths and weather conditions
 - **Route Summary**: Get comprehensive weather overviews for your flight plan
 - **Responsive Design**: Works seamlessly on all devices
+- **Multi-language Support**: Built-in translation capabilities
+- **Flight Notes**: Save and auto-save your flight planning notes
 
 ## 🛠️ Tech Stack
 
@@ -22,8 +24,8 @@ A modern, real-time aviation weather dashboard that provides comprehensive weath
 - **Backend**: Node.js
 - **APIs**: 
   - Aviation Weather API
-  - Mapbox GL JS for mapping functionality
-  - Groq API (for weather interpretation)
+  - Groq API for weather interpretation
+  - Google Translate API for language support
 
 ## 🚀 Getting Started
 
@@ -31,7 +33,6 @@ A modern, real-time aviation weather dashboard that provides comprehensive weath
 
 - Node.js (v14 or higher)
 - npm (v6 or higher)
-- Mapbox Access Token
 - Groq API key
 
 ### Installation
@@ -49,7 +50,6 @@ npm install
 
 3. Create a `.env` file in the root directory:
 ```env
-MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 GROQ_API_KEY=your_groq_api_key
 ```
 
@@ -75,6 +75,13 @@ npm start
    - SIGMET alerts
    - Interactive map
    - Route summary
+
+4. Use the translation feature to view the dashboard in multiple languages
+
+5. Access the flight notes feature by clicking the notes icon in the bottom right corner:
+   - Write and save your flight planning notes
+   - Notes are automatically saved as you type
+   - Access your notes anytime during your flight planning session
 
 ## 🎨 Design
 
@@ -107,8 +114,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Aviation Weather API for providing weather data
-- Mapbox for mapping functionality
 - Groq for AI-powered weather interpretation
+- Google Translate for language support
 - All contributors and users of the project
 
 ## 📞 Support
@@ -118,6 +125,6 @@ For support, please open an issue in the GitHub repository or contact the mainta
 ---
 
 <div align="center">
-  <p>Made with ❤️ by the CloudCompass Team</p>
+  <p>Made with ❤️ by champ</p>
   <p>✈️ Fly Safe! ✈️</p>
 </div> 
