@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Validate environment variables
-const requiredEnvVars = ['GROQ_API_KEY', 'MAPBOX_ACCESS_TOKEN'];
+const requiredEnvVars = ['GROQ_API_KEY'];
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
@@ -27,19 +27,11 @@ app.use(express.static(__dirname));
 
 // API Routes
 app.get('/api/config', (req, res) => {
-    // In production, we'll use Netlify's environment variables
-    const mapboxConfig = {
-        token: process.env.MAPBOX_ACCESS_TOKEN,
-        style: process.env.MAPBOX_STYLE || 'mapbox://styles/mapbox/outdoors-v12',
-        center: process.env.MAPBOX_CENTER ? JSON.parse(process.env.MAPBOX_CENTER) : [-98.5795, 39.8283],
-        zoom: process.env.MAPBOX_ZOOM ? parseInt(process.env.MAPBOX_ZOOM) : 4
-    };
-
-    if (!mapboxConfig.token) {
-        return res.status(500).json({ error: 'Mapbox configuration not available' });
-    }
-
-    res.json(mapboxConfig);
+    // Return a simple config without Mapbox
+    res.json({
+        center: [-98.5795, 39.8283],
+        zoom: 4
+    });
 });
 
 async function generateSummary(data, type) {

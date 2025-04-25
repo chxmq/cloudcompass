@@ -1,7 +1,6 @@
 let map;
 let markers = [];
 let flightPath;
-let mapboxConfig;
 
 // Cache for airport coordinates to reduce API calls
 const airportCoordinatesCache = {};
@@ -567,7 +566,7 @@ async function getAirportCoordinates(airportCode) {
             if (airportCoordinates[airportCode]) {
                 return airportCoordinates[airportCode];
             }
-            throw new Error('No API key configured');
+            return null; // Return null instead of throwing error
         }
 
         // Using AirLabs API
@@ -575,7 +574,8 @@ async function getAirportCoordinates(airportCode) {
         const data = await response.json();
         
         if (data.error) {
-            throw new Error(`API Error: ${data.error.message}`);
+            console.warn(`API Error for ${airportCode}: ${data.error.message}`);
+            return null; // Return null instead of throwing error
         }
 
         if (data.response && data.response.length > 0) {
@@ -594,10 +594,10 @@ async function getAirportCoordinates(airportCode) {
             if (airportCoordinates[airportCode]) {
                 return airportCoordinates[airportCode];
             }
-            throw new Error(`No data found for airport ${airportCode}`);
+            return null; // Return null instead of throwing error
         }
     } catch (error) {
-        console.error(`Error fetching coordinates for ${airportCode}:`, error);
+        console.warn(`Error fetching coordinates for ${airportCode}:`, error);
         
         // Fallback to local database if API call fails
         if (airportCoordinates[airportCode]) {
@@ -779,22 +779,23 @@ async function updateMap(waypoints, weatherData) {
                     ...waypoint,
                     ...coords
                 });
+            } else {
+                console.warn(`No coordinates found for airport ${waypoint.icao}`);
             }
         }
 
         console.log('Waypoints with coordinates:', waypointsWithCoords);
         
         if (waypointsWithCoords.length === 0) {
-            console.error('No valid waypoints found');
-            showError('No valid waypoints found. Please check the airport code.');
-            return;
+            console.warn('No valid waypoints found');
+            return; // Just return without showing error
         }
 
         // Draw the flight path
         drawFlightPath(waypointsWithCoords);
     } catch (error) {
         console.error('Error updating map:', error);
-        showError('Failed to update map visualization');
+        // Don't show error message to user
     }
 }
 
