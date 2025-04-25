@@ -343,9 +343,48 @@ function getIntensityDescription(code) {
     return intensities[code] || code;
 }
 
-function updateUI(data) {
+async function updateUI(data) {
     const { weatherData, waypoints } = data;
     
+    // Update consolidated summary
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/consolidated-summary?route=${encodeURIComponent(routeInput.value)}`);
+        if (response.ok) {
+            const summaryData = await response.json();
+            const consolidatedSummary = document.getElementById('consolidatedSummary');
+            consolidatedSummary.innerHTML = `
+                <div class="summary-section">
+                    <h3><i class="fas fa-plane"></i> Flight Analysis</h3>
+                    <p>${summaryData.summary}</p>
+                </div>
+                <div class="weather-highlights">
+                    <div class="weather-highlight">
+                        <i class="fas fa-cloud-sun"></i>
+                        <h4>Overall Conditions</h4>
+                        <p>${getOverallConditions(weatherData)}</p>
+                    </div>
+                    <div class="weather-highlight">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Key Hazards</h4>
+                        <p>${getKeyHazards(weatherData)}</p>
+                    </div>
+                    <div class="weather-highlight">
+                        <i class="fas fa-chart-line"></i>
+                        <h4>Route Analysis</h4>
+                        <p>${getRouteAnalysis(waypoints)}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            throw new Error('Failed to fetch consolidated summary');
+        }
+    } catch (error) {
+        console.error('Error fetching consolidated summary:', error);
+        document.getElementById('consolidatedSummary').innerHTML = `
+            <div class="no-data">Unable to generate comprehensive summary</div>
+        `;
+    }
+
     // Update METAR section
     const metarContent = document.getElementById('metarContent');
     if (weatherData.metar && weatherData.metar.length > 0) {
@@ -1102,4 +1141,42 @@ document.addEventListener('DOMContentLoaded', function() {
             notesPanel.classList.remove('show');
         }
     });
-}); 
+});
+
+function getOverallConditions(weatherData) {
+    const conditions = [];
+    if (weatherData.metar.some(metar => metar.includes('TS'))) {
+        conditions.push('Thunderstorms');
+    }
+    if (weatherData.metar.some(metar => metar.includes('RA'))) {
+        conditions.push('Rain');
+    }
+    if (weatherData.metar.some(metar => metar.includes('SN'))) {
+        conditions.push('Snow');
+    }
+    if (weatherData.metar.some(metar => metar.includes('FG'))) {
+        conditions.push('Fog');
+    }
+    return conditions.length > 0 ? conditions.join(', ') : 'Generally good conditions';
+}
+
+function getKeyHazards(weatherData) {
+    const hazards = [];
+    if (weatherData.sigmet.length > 0) {
+        hazards.push('SIGMETs in effect');
+    }
+    if (weatherData.pirep.some(pirep => pirep.includes('TURB'))) {
+        hazards.push('Turbulence reported');
+    }
+    if (weatherData.pirep.some(pirep => pirep.includes('IC'))) {
+        hazards.push('Icing reported');
+    }
+    return hazards.length > 0 ? hazards.join(', ') : 'No significant hazards reported';
+}
+
+function getRouteAnalysis(waypoints) {
+    const altitudes = waypoints.map(wp => wp.altitude);
+    const maxAlt = Math.max(...altitudes);
+    const minAlt = Math.min(...altitudes);
+    return `Altitude range: ${minAlt.toLocaleString()}ft - ${maxAlt.toLocaleString()}ft`;
+} 

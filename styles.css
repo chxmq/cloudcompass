@@ -1237,3 +1237,82 @@ body.translated-rtl .input-help {
     background-color: #94a3b8;
     cursor: not-allowed;
 }
+
+.consolidated-summary {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 30px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 30px;
+    border: 1px solid var(--subtle-border-color);
+    animation: fadeIn 0.5s ease-out;
+}
+
+.consolidated-summary h2 {
+    color: var(--primary-color);
+    font-size: 1.5em;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.consolidated-summary .summary-content {
+    font-size: 1.1em;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.consolidated-summary .summary-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(93, 79, 255, 0.03);
+    border-radius: var(--border-radius-sm);
+    border-left: 4px solid var(--primary-color);
+}
+
+.consolidated-summary .summary-section h3 {
+    color: var(--primary-color);
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.consolidated-summary .summary-section p {
+    margin: 5px 0;
+}
+
+.consolidated-summary .weather-highlights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.consolidated-summary .weather-highlight {
+    padding: 15px;
+    border-radius: var(--border-radius-sm);
+    background: rgba(93, 79, 255, 0.03);
+    text-align: center;
+}
+
+.consolidated-summary .weather-highlight i {
+    font-size: 1.5em;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.consolidated-summary .weather-highlight h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+.consolidated-summary .weather-highlight p {
+    margin: 5px 0 0;
+    font-size: 0.9em;
+    color: var(--text-color);
+}
