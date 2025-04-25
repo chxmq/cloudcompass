@@ -958,9 +958,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle notes panel
     notesButton.addEventListener('click', () => {
         notesPanel.classList.toggle('show');
+        if (notesPanel.classList.contains('show')) {
+            notesTextarea.focus();
+        }
     });
     
-    // Close notes panel
+    // Close notes panel only when explicitly clicking the close button
     closeNotes.addEventListener('click', () => {
         notesPanel.classList.remove('show');
     });
@@ -970,6 +973,7 @@ document.addEventListener('DOMContentLoaded', function() {
     notesTextarea.addEventListener('input', () => {
         clearTimeout(saveTimeout);
         notesStatus.textContent = 'Saving...';
+        notesStatus.style.opacity = '1';
         
         saveTimeout = setTimeout(() => {
             localStorage.setItem('flightNotes', notesTextarea.value);
@@ -982,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     });
     
-    // Dragging functionality
+    // Enhanced dragging functionality
     let isDragging = false;
     let currentX;
     let currentY;
@@ -994,6 +998,7 @@ document.addEventListener('DOMContentLoaded', function() {
     notesHeader.addEventListener('mousedown', dragStart);
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('mouseleave', dragEnd);
 
     function dragStart(e) {
         initialX = e.clientX - xOffset;
@@ -1001,6 +1006,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (e.target === notesHeader || e.target === notesHeader.querySelector('h3')) {
             isDragging = true;
+            notesPanel.style.cursor = 'grabbing';
+            notesHeader.style.cursor = 'grabbing';
         }
     }
 
@@ -1014,31 +1021,39 @@ document.addEventListener('DOMContentLoaded', function() {
             xOffset = currentX;
             yOffset = currentY;
 
+            // Keep the panel within viewport bounds
+            const rect = notesPanel.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width;
+            const maxY = window.innerHeight - rect.height;
+
+            currentX = Math.min(Math.max(currentX, 0), maxX);
+            currentY = Math.min(Math.max(currentY, 0), maxY);
+
             setTranslate(currentX, currentY, notesPanel);
         }
     }
 
     function dragEnd(e) {
-        initialX = currentX;
-        initialY = currentY;
-        isDragging = false;
-        
-        // Save position
-        const rect = notesPanel.getBoundingClientRect();
-        localStorage.setItem('notesPosition', JSON.stringify({
-            x: rect.left,
-            y: rect.top
-        }));
+        if (isDragging) {
+            isDragging = false;
+            notesPanel.style.cursor = 'default';
+            notesHeader.style.cursor = 'grab';
+            
+            // Save position
+            const rect = notesPanel.getBoundingClientRect();
+            localStorage.setItem('notesPosition', JSON.stringify({
+                x: rect.left,
+                y: rect.top
+            }));
+        }
     }
 
     function setTranslate(xPos, yPos, el) {
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     }
     
-    // Close notes panel when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
-            notesPanel.classList.remove('show');
-        }
+    // Prevent closing when clicking inside the notes panel
+    notesPanel.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 }); 

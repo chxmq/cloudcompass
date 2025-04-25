@@ -1133,17 +1133,18 @@ body.translated-rtl .input-help {
     position: fixed;
     bottom: 100px;
     right: 30px;
-    width: 300px;
+    width: 350px;
     background: var(--card-background);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 15px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 20px;
     display: none;
     opacity: 0;
     transform: translateY(20px);
-    transition: opacity 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: move;
     user-select: none;
+    border: 1px solid var(--subtle-border-color);
 }
 
 .notes-panel.show {
@@ -1156,22 +1157,26 @@ body.translated-rtl .input-help {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     cursor: move;
-    padding: 5px;
-    border-radius: 8px;
+    padding: 8px;
+    border-radius: 12px;
     transition: background-color 0.3s ease;
+    background: rgba(93, 79, 255, 0.05);
 }
 
 .notes-header:hover {
-    background-color: rgba(93, 79, 255, 0.05);
+    background-color: rgba(93, 79, 255, 0.1);
 }
 
 .notes-header h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     color: var(--text-color);
     pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .close-notes {
@@ -1179,34 +1184,52 @@ body.translated-rtl .input-help {
     border: none;
     color: var(--text-color);
     cursor: pointer;
-    font-size: 1.1rem;
-    padding: 5px;
-    transition: color 0.3s ease;
+    font-size: 1.2rem;
+    padding: 6px;
+    transition: all 0.3s ease;
     pointer-events: auto;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-notes:hover {
+    background: rgba(93, 79, 255, 0.1);
+    color: var(--primary-color);
 }
 
 #notesTextarea {
     width: 100%;
-    height: 200px;
-    padding: 10px;
+    height: 250px;
+    padding: 12px;
     border: 1px solid var(--subtle-border-color);
-    border-radius: 8px;
+    border-radius: 12px;
     resize: none;
     font-family: 'Poppins', sans-serif;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     background: var(--card-background);
     color: var(--text-color);
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    transition: border-color 0.3s ease;
 }
 
 #notesTextarea:focus {
     outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(93, 79, 255, 0.1);
 }
 
 .notes-status {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--text-color);
-    text-align: right;
     opacity: 0.7;
+    text-align: right;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(93, 79, 255, 0.05);
+    transition: opacity 0.3s ease;
 }
