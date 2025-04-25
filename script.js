@@ -913,6 +913,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             searchBtn.click();
         }
     });
+
+    // Add read aloud functionality
+    const readAloudBtn = document.getElementById('readAloudBtn');
+    let speechSynthesis = window.speechSynthesis;
+    let isReading = false;
+
+    readAloudBtn.addEventListener('click', () => {
+        if (isReading) {
+            speechSynthesis.cancel();
+            isReading = false;
+            readAloudBtn.innerHTML = '<i class="fas fa-volume-up"></i> Read Aloud';
+            readAloudBtn.disabled = false;
+            return;
+        }
+
+        const summaryContent = document.getElementById('summaryContent');
+        if (!summaryContent || summaryContent.querySelector('.no-data')) {
+            return;
+        }
+
+        isReading = true;
+        readAloudBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Reading';
+        readAloudBtn.disabled = false;
+
+        // Get all the text content from the summary
+        const summaryItems = summaryContent.querySelectorAll('.summary-item');
+        let textToRead = '';
+
+        summaryItems.forEach((item, index) => {
+            const airport = item.querySelector('h3').textContent;
+            const weatherLabel = item.querySelector('.weather-condition-label').textContent;
+            const wind = item.querySelector('p:nth-of-type(1)').textContent;
+            const visibility = item.querySelector('p:nth-of-type(2)').textContent;
+            
+            textToRead += `At ${airport}, ${weatherLabel}. ${wind}. ${visibility}. `;
+            
+            const nextWaypoint = item.querySelector('.next-waypoint');
+            if (nextWaypoint) {
+                textToRead += `Next waypoint: ${nextWaypoint.textContent}. `;
+            }
+        });
+
+        // Create and speak the utterance
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        utterance.onend = () => {
+            isReading = false;
+            readAloudBtn.innerHTML = '<i class="fas fa-volume-up"></i> Read Aloud';
+            readAloudBtn.disabled = false;
+        };
+        utterance.onerror = (event) => {
+            console.error('Speech synthesis error:', event);
+            isReading = false;
+            readAloudBtn.innerHTML = '<i class="fas fa-volume-up"></i> Read Aloud';
+            readAloudBtn.disabled = false;
+        };
+
+        speechSynthesis.speak(utterance);
+    });
 });
 
 function showError(message) {
@@ -958,12 +1019,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle notes panel
     notesButton.addEventListener('click', () => {
         notesPanel.classList.toggle('show');
-        if (notesPanel.classList.contains('show')) {
-            notesTextarea.focus();
-        }
     });
     
-    // Close notes panel only when explicitly clicking the close button
+    // Close notes panel
     closeNotes.addEventListener('click', () => {
         notesPanel.classList.remove('show');
     });
@@ -973,7 +1031,6 @@ document.addEventListener('DOMContentLoaded', function() {
     notesTextarea.addEventListener('input', () => {
         clearTimeout(saveTimeout);
         notesStatus.textContent = 'Saving...';
-        notesStatus.style.opacity = '1';
         
         saveTimeout = setTimeout(() => {
             localStorage.setItem('flightNotes', notesTextarea.value);
@@ -986,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     });
     
-    // Enhanced dragging functionality
+    // Dragging functionality
     let isDragging = false;
     let currentX;
     let currentY;
@@ -998,7 +1055,6 @@ document.addEventListener('DOMContentLoaded', function() {
     notesHeader.addEventListener('mousedown', dragStart);
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', dragEnd);
-    document.addEventListener('mouseleave', dragEnd);
 
     function dragStart(e) {
         initialX = e.clientX - xOffset;
@@ -1006,8 +1062,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (e.target === notesHeader || e.target === notesHeader.querySelector('h3')) {
             isDragging = true;
-            notesPanel.style.cursor = 'grabbing';
-            notesHeader.style.cursor = 'grabbing';
         }
     }
 
@@ -1021,39 +1075,31 @@ document.addEventListener('DOMContentLoaded', function() {
             xOffset = currentX;
             yOffset = currentY;
 
-            // Keep the panel within viewport bounds
-            const rect = notesPanel.getBoundingClientRect();
-            const maxX = window.innerWidth - rect.width;
-            const maxY = window.innerHeight - rect.height;
-
-            currentX = Math.min(Math.max(currentX, 0), maxX);
-            currentY = Math.min(Math.max(currentY, 0), maxY);
-
             setTranslate(currentX, currentY, notesPanel);
         }
     }
 
     function dragEnd(e) {
-        if (isDragging) {
-            isDragging = false;
-            notesPanel.style.cursor = 'default';
-            notesHeader.style.cursor = 'grab';
-            
-            // Save position
-            const rect = notesPanel.getBoundingClientRect();
-            localStorage.setItem('notesPosition', JSON.stringify({
-                x: rect.left,
-                y: rect.top
-            }));
-        }
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+        
+        // Save position
+        const rect = notesPanel.getBoundingClientRect();
+        localStorage.setItem('notesPosition', JSON.stringify({
+            x: rect.left,
+            y: rect.top
+        }));
     }
 
     function setTranslate(xPos, yPos, el) {
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     }
     
-    // Prevent closing when clicking inside the notes panel
-    notesPanel.addEventListener('click', (e) => {
-        e.stopPropagation();
+    // Close notes panel when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
+            notesPanel.classList.remove('show');
+        }
     });
 }); 
