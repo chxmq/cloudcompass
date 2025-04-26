@@ -3,6 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
+
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -22,8 +25,8 @@ if (missingEnvVars.length > 0) {
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the current directory
-app.use(express.static(__dirname));
+// Serve static files from the public directory
+app.use(express.static(PUBLIC_DIR));
 
 // API Routes
 app.get('/api/config', (req, res) => {
@@ -573,7 +576,7 @@ app.get('/api/consolidated-summary', async (req, res) => {
 
 // Handle client-side routing - serve index.html for all other routes
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 app.listen(port, () => {

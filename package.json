@@ -1,11 +1,14 @@
 {
-  "name": "aviation-weather-dashboard",
+  "name": "cloudcompass",
   "version": "1.0.0",
-  "description": "Aviation Weather Dashboard",
-  "main": "server.js",
+  "description": "Aviation weather dashboard for flight planning",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
     "build": "echo 'No build step required'",
     "test": "node --test"
   },
