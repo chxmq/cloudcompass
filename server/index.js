@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 const path = require('path');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -36,6 +35,35 @@ app.get('/api/config', (req, res) => {
         zoom: 4
     });
 });
+
+// The API prefixes each METAR with a report-type token ("METAR "/"SPECI ") that the rest of
+// the app doesn't expect (station code is assumed to be the first 4 characters). Strip it so
+// each entry starts directly with the ICAO code.
+function normalizeMetarLines(rawText) {
+    return rawText
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => line.trim().replace(/^(METAR|SPECI)\s+/, ''));
+}
+
+// TAFs come back as one "TAF <ICAO> ..." header line followed by indented FM/BECMG/TEMPO
+// continuation lines with no station prefix of their own. Re-assemble each station's lines
+// into a single block and strip the leading report-type token(s), so each entry starts
+// directly with the ICAO code and contains the full forecast.
+function normalizeTafBlocks(rawText) {
+    const lines = rawText.split('\n').filter(line => line.trim().length > 0);
+    const blocks = [];
+
+    for (const line of lines) {
+        if (/^\S/.test(line)) {
+            blocks.push([line.trim()]);
+        } else if (blocks.length > 0) {
+            blocks[blocks.length - 1].push(line.trim());
+        }
+    }
+
+    return blocks.map(block => block.join('\n').replace(/^(?:(?:TAF|AMD|COR)\s+)+/i, ''));
+}
 
 async function generateSummary(data, type) {
     try {
@@ -169,12 +197,12 @@ app.get('/api/weather', async (req, res) => {
         };
 
         // Fetch METAR data
-        const metarResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/metar.php?ids=${airports.join(',')}&format=raw`);
+        const metarResponse = await fetch(`https://aviationweather.gov/api/data/metar?ids=${airports.join(',')}&format=raw`);
         if (!metarResponse.ok) {
             throw new Error(`METAR API returned ${metarResponse.status}: ${metarResponse.statusText}`);
         }
         const metarData = await metarResponse.text();
-        results.metar = metarData.split('\n').filter(line => line.trim());
+        results.metar = normalizeMetarLines(metarData);
         
         // Generate METAR summaries
         for (const metar of results.metar) {
@@ -183,12 +211,12 @@ app.get('/api/weather', async (req, res) => {
         }
 
         // Fetch TAF data
-        const tafResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/taf.php?ids=${airports.join(',')}&format=raw`);
+        const tafResponse = await fetch(`https://aviationweather.gov/api/data/taf?ids=${airports.join(',')}&format=raw`);
         if (!tafResponse.ok) {
             throw new Error(`TAF API returned ${tafResponse.status}: ${tafResponse.statusText}`);
         }
         const tafData = await tafResponse.text();
-        results.taf = tafData.split('\n').filter(line => line.trim());
+        results.taf = normalizeTafBlocks(tafData);
         
         // Group TAFs by airport for summaries
         const tafsByAirport = {};
@@ -211,32 +239,23 @@ app.get('/api/weather', async (req, res) => {
             });
         }
 
-        // Fetch PIREP data
+        // Fetch PIREP data. The API's PIREP endpoint requires a station + radius rather than a
+        // route, so query a reasonable radius around each waypoint and merge/de-duplicate.
         try {
-            const pirepResponse = await fetch('https://aviationweather.gov/cgi-bin/data/pirep.php?format=raw');
-            if (!pirepResponse.ok) {
-                throw new Error(`PIREP API returned ${pirepResponse.status}: ${pirepResponse.statusText}`);
-            }
-            const pirepData = await pirepResponse.text();
-            const pirepLines = pirepData.split('\n').filter(line => line.trim());
-            
-            // Filter PIREPs relevant to our route
-            results.pirep = pirepLines.filter(line => {
-                const isRelevant = airports.some(airport => {
-                    if (line.includes(airport)) {
-                        return true;
-                    }
-                    
-                    const fixMatch = line.match(/\/OV ([A-Z]{2,3})(\d{2,3})(\d{2,3})/);
-                    if (fixMatch) {
-                        const fix = fixMatch[1];
-                        return airports.some(ap => ap.startsWith(fix));
-                    }
-                    
-                    return false;
-                });
-                return isRelevant;
+            const pirepResponses = await Promise.all(airports.map(airport =>
+                fetch(`https://aviationweather.gov/api/data/pirep?id=${airport}&distance=200&age=3&format=raw`)
+                    .then(async response => (response.ok ? response.text() : ''))
+                    .catch(error => {
+                        console.error(`Error fetching PIREP data for ${airport}:`, error);
+                        return '';
+                    })
+            ));
+
+            const pirepLines = new Set();
+            pirepResponses.forEach(text => {
+                text.split('\n').filter(line => line.trim()).forEach(line => pirepLines.add(line));
             });
+            results.pirep = [...pirepLines];
 
             // Generate PIREP summaries
             for (const pirep of results.pirep) {
@@ -450,10 +469,10 @@ app.get('/api/consolidated-summary', async (req, res) => {
 
         // Fetch METARs
         try {
-            const metarResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/metar.php?ids=${airports.join(',')}&format=raw`);
+            const metarResponse = await fetch(`https://aviationweather.gov/api/data/metar?ids=${airports.join(',')}&format=raw`);
             if (metarResponse.ok) {
                 const metarData = await metarResponse.text();
-                weatherData.metar = metarData.split('\n').filter(line => line.trim());
+                weatherData.metar = normalizeMetarLines(metarData);
             } else {
                 console.error(`Failed to fetch METAR data: ${metarResponse.status} ${metarResponse.statusText}`);
             }
@@ -463,10 +482,10 @@ app.get('/api/consolidated-summary', async (req, res) => {
 
         // Fetch TAFs
         try {
-            const tafResponse = await fetch(`https://aviationweather.gov/cgi-bin/data/taf.php?ids=${airports.join(',')}&format=raw`);
+            const tafResponse = await fetch(`https://aviationweather.gov/api/data/taf?ids=${airports.join(',')}&format=raw`);
             if (tafResponse.ok) {
                 const tafData = await tafResponse.text();
-                weatherData.taf = tafData.split('\n').filter(line => line.trim());
+                weatherData.taf = normalizeTafBlocks(tafData);
             } else {
                 console.error(`Failed to fetch TAF data: ${tafResponse.status} ${tafResponse.statusText}`);
             }
@@ -474,32 +493,23 @@ app.get('/api/consolidated-summary', async (req, res) => {
             console.error('Error fetching TAF data:', error);
         }
 
-        // Fetch PIREPs - using a more reliable endpoint
+        // Fetch PIREPs - the API requires a station + radius rather than a route, so query a
+        // reasonable radius around each waypoint and merge/de-duplicate the results.
         try {
-            const pirepResponse = await fetch('https://aviationweather.gov/cgi-bin/data/pirep.php?format=raw');
-            if (pirepResponse.ok) {
-                const pirepData = await pirepResponse.text();
-                const pirepLines = pirepData.split('\n').filter(line => line.trim());
-                
-                // Filter PIREPs relevant to our route
-                weatherData.pirep = pirepLines.filter(line => {
-                    return airports.some(airport => {
-                        if (line.includes(airport)) {
-                            return true;
-                        }
-                        
-                        const fixMatch = line.match(/\/OV ([A-Z]{2,3})(\d{2,3})(\d{2,3})/);
-                        if (fixMatch) {
-                            const fix = fixMatch[1];
-                            return airports.some(ap => ap.startsWith(fix));
-                        }
-                        
-                        return false;
-                    });
-                });
-            } else {
-                console.error(`Failed to fetch PIREP data: ${pirepResponse.status} ${pirepResponse.statusText}`);
-            }
+            const pirepResponses = await Promise.all(airports.map(airport =>
+                fetch(`https://aviationweather.gov/api/data/pirep?id=${airport}&distance=200&age=3&format=raw`)
+                    .then(async response => (response.ok ? response.text() : ''))
+                    .catch(error => {
+                        console.error(`Error fetching PIREP data for ${airport}:`, error);
+                        return '';
+                    })
+            ));
+
+            const pirepLines = new Set();
+            pirepResponses.forEach(text => {
+                text.split('\n').filter(line => line.trim()).forEach(line => pirepLines.add(line));
+            });
+            weatherData.pirep = [...pirepLines];
         } catch (error) {
             console.error('Error fetching PIREP data:', error);
         }
