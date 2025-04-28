@@ -20,8 +20,61 @@ if (missingEnvVars.length > 0) {
     }
 }
 
+// --- CORS -------------------------------------------------------------
+// Same-origin requests (no Origin header, or the app serving its own frontend) are always
+// allowed. Cross-origin access is opt-in via ALLOWED_ORIGINS so this API can't be hammered
+// for free from arbitrary third-party sites.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin(origin, callback) {
+        // No CORS headers for unrecognized origins (rather than throwing), so browsers simply
+        // block the cross-origin read instead of the server returning a noisy 500.
+        callback(null, !origin || allowedOrigins.includes(origin));
+    }
+}));
+
+// --- Rate limiting ------------------------------------------------------
+// The weather/summary endpoints trigger paid Groq API calls, so they're rate-limited per IP
+// to prevent a single client from running up cost or DoSing the upstream APIs.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 15;
+const rateLimitStore = new Map();
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rateLimitStore) {
+        if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+            rateLimitStore.delete(key);
+        }
+    }
+}, RATE_LIMIT_WINDOW_MS).unref();
+
+function rateLimit(req, res, next) {
+    const key = req.ip;
+    const now = Date.now();
+    const entry = rateLimitStore.get(key);
+
+    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rateLimitStore.set(key, { windowStart: now, count: 1 });
+        return next();
+    }
+
+    entry.count += 1;
+    if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+        return res.status(429).json({
+            error: 'Too many requests',
+            details: 'Please wait a moment before requesting more weather data.'
+        });
+    }
+
+    next();
+}
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // Serve static files from the public directory
@@ -240,7 +293,7 @@ async function fetchRouteWeatherData(airports) {
     return weatherData;
 }
 
-app.get('/api/weather', async (req, res) => {
+app.get('/api/weather', rateLimit, async (req, res) => {
     const { route } = req.query;
 
     if (!route) {
@@ -395,7 +448,7 @@ Provide a clear, concise summary in plain English.`;
     }
 }
 
-app.get('/api/consolidated-summary', async (req, res) => {
+app.get('/api/consolidated-summary', rateLimit, async (req, res) => {
     const { route } = req.query;
 
     if (!route) {
