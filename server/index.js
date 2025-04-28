@@ -2,8 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { parseFlightPlan, FlightPlanError } = require('../shared/flightPlanUtils');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const SHARED_DIR = path.join(__dirname, '..', 'shared');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -77,8 +79,14 @@ function rateLimit(req, res, next) {
 // Middleware
 app.use(express.json());
 
-// Serve static files from the public directory
+// Serve static files from the current directory
 app.use(express.static(PUBLIC_DIR));
+
+// flightPlanUtils.js is shared between the server (required as a module) and the browser
+// (loaded as a plain script), so it lives outside public/ but is still served to the client.
+app.get('/flightPlanUtils.js', (req, res) => {
+    res.sendFile(path.join(SHARED_DIR, 'flightPlanUtils.js'));
+});
 
 // API Routes
 app.get('/api/config', (req, res) => {
@@ -296,44 +304,18 @@ async function fetchRouteWeatherData(airports) {
 app.get('/api/weather', rateLimit, async (req, res) => {
     const { route } = req.query;
 
-    if (!route) {
-        return res.status(400).json({
-            error: 'Route parameter is required',
-            details: 'Please provide a valid flight plan in the format: KPHX,10000,VIDP,1000'
-        });
-    }
-
-    const routeParts = route.split(',');
-    if (routeParts.length % 2 !== 0) {
-        return res.status(400).json({
-            error: 'Invalid route format',
-            details: 'Route must contain pairs of airport codes and altitudes'
-        });
-    }
-
-    const airports = [];
-    for (let i = 0; i < routeParts.length; i += 2) {
-        const airport = routeParts[i].trim();
-        if (!airport || !/^[A-Z]{3,4}$/.test(airport)) {
-            return res.status(400).json({
-                error: 'Invalid airport code',
-                details: `Airport code "${airport}" is invalid. Must be 3-4 uppercase letters.`
-            });
+    let waypoints;
+    try {
+        waypoints = parseFlightPlan(route);
+    } catch (error) {
+        if (error instanceof FlightPlanError) {
+            return res.status(400).json({ error: 'Invalid flight plan', details: error.message });
         }
-        airports.push(airport);
-    }
-
-    for (let i = 1; i < routeParts.length; i += 2) {
-        const altitude = parseInt(routeParts[i].trim());
-        if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
-            return res.status(400).json({
-                error: 'Invalid altitude',
-                details: `Altitude "${routeParts[i]}" is invalid. Must be a number between 0 and 60000 feet.`
-            });
-        }
+        throw error;
     }
 
     try {
+        const airports = waypoints.map(wp => wp.icao);
         const weatherData = await fetchRouteWeatherData(airports);
 
         // Group TAFs by airport for summaries
@@ -451,47 +433,18 @@ Provide a clear, concise summary in plain English.`;
 app.get('/api/consolidated-summary', rateLimit, async (req, res) => {
     const { route } = req.query;
 
-    if (!route) {
-        return res.status(400).json({
-            error: 'Route parameter is required',
-            details: 'Please provide a valid flight plan in the format: KPHX,10000,VIDP,1000'
-        });
-    }
-
-    const routeParts = route.split(',');
-    if (routeParts.length % 2 !== 0) {
-        return res.status(400).json({
-            error: 'Invalid route format',
-            details: 'Route must contain pairs of airport codes and altitudes'
-        });
-    }
-
-    const waypoints = [];
-    const airports = [];
-
-    for (let i = 0; i < routeParts.length; i += 2) {
-        const icao = routeParts[i].trim();
-        const altitude = parseInt(routeParts[i + 1].trim());
-
-        if (!icao || !/^[A-Z]{3,4}$/.test(icao)) {
-            return res.status(400).json({
-                error: 'Invalid airport code',
-                details: `Airport code "${icao}" is invalid. Must be 3-4 uppercase letters.`
-            });
+    let waypoints;
+    try {
+        waypoints = parseFlightPlan(route);
+    } catch (error) {
+        if (error instanceof FlightPlanError) {
+            return res.status(400).json({ error: 'Invalid flight plan', details: error.message });
         }
-
-        if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
-            return res.status(400).json({
-                error: 'Invalid altitude',
-                details: `Altitude "${routeParts[i + 1]}" is invalid. Must be a number between 0 and 60000 feet.`
-            });
-        }
-
-        waypoints.push({ icao, altitude });
-        airports.push(icao);
+        throw error;
     }
 
     try {
+        const airports = waypoints.map(wp => wp.icao);
         const weatherData = await fetchRouteWeatherData(airports);
         const summary = await generateConsolidatedSummary(weatherData, waypoints);
         res.json({ summary });

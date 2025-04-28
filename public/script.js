@@ -129,67 +129,9 @@ function initMap() {
     }, 100);
 }
 
-function parseFlightPlan(flightPlan) {
-    console.log('Parsing flight plan:', flightPlan);
-    const parts = flightPlan.split(',');
-    const waypoints = [];
-    
-    // Handle single waypoint case
-    if (parts.length === 2) {
-        const icao = parts[0].trim().toUpperCase();
-        const altitude = parseInt(parts[1].trim());
-        
-        if (!icao || !/^[A-Z]{3,4}$/.test(icao)) {
-            throw new Error(`Invalid airport code: ${icao}`);
-        }
-        
-        if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
-            throw new Error(`Invalid altitude: ${parts[1]}`);
-        }
-        
-        waypoints.push({
-            icao,
-            altitude
-        });
-        return waypoints;
-    }
-    
-    // Handle multiple waypoints
-    if (parts.length % 2 !== 0) {
-        throw new Error('Invalid flight plan format. Must contain pairs of airport codes and altitudes.');
-    }
-    
-    for (let i = 0; i < parts.length; i += 2) {
-        const icao = parts[i].trim().toUpperCase();
-        const altitude = parseInt(parts[i + 1].trim());
-        
-        if (!icao || !/^[A-Z]{3,4}$/.test(icao)) {
-            throw new Error(`Invalid airport code: ${icao}`);
-        }
-        
-        if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
-            throw new Error(`Invalid altitude: ${parts[i + 1]}`);
-        }
-        
-        waypoints.push({
-            icao,
-            altitude
-        });
-    }
-    
-    console.log('Parsed waypoints:', waypoints);
-    return waypoints;
-}
-
 async function fetchWeatherData(flightPlan) {
-    // Validate input format
-    const waypoints = parseFlightPlan(flightPlan);
-    if (waypoints.length === 0) {
-        throw new Error('Invalid flight plan format. Please use format: KPHX,10000,VIDP,1000');
-    }
+    const waypoints = FlightPlanUtils.parseFlightPlan(flightPlan);
 
-    const airports = waypoints.map(wp => wp.icao);
-    
     try {
         const response = await fetch(`${BACKEND_URL}/api/weather?route=${encodeURIComponent(flightPlan)}`);
         if (!response.ok) {
@@ -903,29 +845,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Validate flight plan format
-        const parts = routeInput.split(',');
-        if (parts.length % 2 !== 0) {
-            showError('Invalid flight plan format. Must contain pairs of airport codes and altitudes.');
+        try {
+            FlightPlanUtils.parseFlightPlan(routeInput);
+        } catch (error) {
+            showError(error.message);
             return;
-        }
-
-        // Validate airport codes
-        for (let i = 0; i < parts.length; i += 2) {
-            const airport = parts[i].trim();
-            if (!/^[A-Z]{3,4}$/.test(airport)) {
-                showError(`Invalid airport code: ${airport}. Must be 3-4 uppercase letters.`);
-                return;
-            }
-        }
-
-        // Validate altitudes
-        for (let i = 1; i < parts.length; i += 2) {
-            const altitude = parseInt(parts[i].trim());
-            if (isNaN(altitude) || altitude < 0 || altitude > 60000) {
-                showError(`Invalid altitude: ${parts[i]}. Must be a number between 0 and 60000 feet.`);
-                return;
-            }
         }
 
         try {
