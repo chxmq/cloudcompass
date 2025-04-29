@@ -41,6 +41,26 @@
     box-sizing: border-box;
 }
 
+/* Visible on any button/link background, since currentColor tracks each element's own text color. */
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Visually hidden but readable by assistive tech (screen-reader-only labels). */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 body {
     font-family: 'Poppins', sans-serif;
     background: var(--gradient-background);
@@ -313,6 +333,13 @@ button:hover {
     transform: translateY(-2px);
 }
 
+.airport-header {
+    color: var(--primary-color);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
 .raw-data {
     font-family: 'Courier New', monospace;
     background-color: rgba(93, 79, 255, 0.02);
@@ -380,18 +407,23 @@ button:hover {
     padding: 30px;
     box-shadow: var(--card-shadow);
     animation: fadeIn 0.5s ease-out;
-    margin-bottom: 0;
+    margin: 20px 0;
     border: 1px solid var(--subtle-border-color);
     height: 600px;
     width: 100%;
+    position: relative;
 }
 
 #map {
-    height: calc(100% - 50px);
-    border-radius: var(--border-radius-sm);
+    width: 100%;
+    height: 500px;
+    margin: 20px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: #f0f0f0;
+    border: 1px solid #dee2e6;
     overflow: hidden;
-    margin-top: 20px;
-    border: 1px solid rgba(93, 79, 255, 0.05);
+    position: relative;
 }
 
 .weather-summary {
@@ -613,38 +645,6 @@ button:hover {
     }
 }
 
-/* Enhanced form helpers */
-.altitude {
-    font-size: 0.9em;
-    background: rgba(255, 255, 255, 0.25);
-    padding: 3px 10px;
-    border-radius: 12px;
-    margin-left: 10px;
-    font-weight: 500;
-}
-
-.flight-leg {
-    margin-top: 15px;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
-}
-
-.flight-leg i {
-    color: white;
-    margin-bottom: 8px;
-    display: block;
-    font-size: 1.2em;
-}
-
-.flight-leg p {
-    margin: 0;
-    font-size: 0.9em;
-    opacity: 0.9;
-}
-
 .input-help {
     text-align: center;
     color: #5A6785;
@@ -676,8 +676,8 @@ button:hover {
 }
 
 /* Enhanced PIREP and SIGMET styling */
-.pirep-item, .sigmet-item {
-    background: rgba(255, 255, 255, 0.15);
+.pirep-item, .sigmet-item, .sigmet-details {
+    background: rgba(93, 79, 255, 0.05);
     padding: 18px;
     border-radius: var(--border-radius-sm);
     margin-bottom: 18px;
@@ -686,19 +686,20 @@ button:hover {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
 }
 
-.pirep-item:hover, .sigmet-item:hover {
+.pirep-item:hover, .sigmet-item:hover, .sigmet-details:hover {
     transform: translateX(6px);
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(93, 79, 255, 0.09);
 }
 
-.pirep-item p, .sigmet-item p {
+.pirep-item p, .sigmet-item p, .sigmet-details p {
     margin: 6px 0;
     font-size: 0.95em;
     line-height: 1.6;
+    color: var(--text-color);
 }
 
-.pirep-item strong, .sigmet-item strong {
-    color: rgba(255, 255, 255, 0.95);
+.pirep-item strong, .sigmet-item strong, .sigmet-details strong {
+    color: var(--primary-color);
     margin-right: 6px;
     font-weight: 600;
 }
@@ -709,111 +710,12 @@ input[type="text"]:invalid {
     background-color: rgba(255, 83, 116, 0.03);
 }
 
-/* Refined map info window styling */
-.map-info-window {
-    padding: 22px;
-    font-family: 'Poppins', sans-serif;
-    min-width: 270px;
-    border-radius: var(--border-radius-sm);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-.map-info-window h3 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-    font-size: 1.3em;
-    font-weight: 600;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(93, 79, 255, 0.1);
-}
-
-.map-info-window p {
-    margin: 12px 0;
-    font-size: 1em;
-    color: var(--text-color);
-    line-height: 1.5;
-}
-
-.map-info-window .weather-condition {
-    display: inline-block;
-    padding: 8px 16px;
-    border-radius: var(--border-radius-sm);
-    font-size: 0.9em;
-    font-weight: 500;
-    margin-left: 10px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* Enhanced weather section styling */
-.weather-section {
-    margin-bottom: 25px;
-    padding: 20px 0;
-}
-
-.weather-section h3 {
-    color: var(--primary-color);
-    margin-bottom: 18px;
-    font-size: 1.2em;
-    padding-bottom: 12px;
-    border-bottom: 2px solid rgba(93, 79, 255, 0.08);
-    font-weight: 600;
-}
-
 /* Enhanced separator */
 hr {
     border: none;
     height: 1px;
     background: rgba(93, 79, 255, 0.08);
     margin: 25px 0;
-}
-
-/* Enhanced forecast sections */
-.fm-forecast, .taf-forecast, .be-forecast, .pr-forecast {
-    margin-bottom: 20px;
-    padding: 18px;
-    background: rgba(93, 79, 255, 0.02);
-    border-radius: var(--border-radius-sm);
-    border: 1px solid rgba(93, 79, 255, 0.06);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
-}
-
-.fm-forecast h3, .taf-forecast h3, .be-forecast h3, .pr-forecast h3 {
-    color: var(--primary-color);
-    font-size: 1.15em;
-    margin-bottom: 12px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Enhanced expand indicator */
-.expand-indicator {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--primary-color);
-    font-size: 0.95em;
-    background: var(--card-background);
-    padding: 6px 16px;
-    border-radius: 20px;
-    border: 1px solid rgba(93, 79, 255, 0.15);
-    box-shadow: 0 4px 12px rgba(93, 79, 255, 0.1);
-    z-index: 2;
-    opacity: 0.85;
-    transition: all 0.3s ease;
-    font-weight: 500;
-}
-
-.weather-card:hover .expand-indicator {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-3px);
-}
-
-.expanded .expand-indicator {
-    display: none;
 }
 
 /* Add subtle animations to elements */
@@ -894,6 +796,20 @@ input::placeholder {
     opacity: 1 !important;
 }
 
+.goog-te-gadget {
+    font-family: 'Poppins', sans-serif !important;
+    font-size: 0.9em !important;
+}
+
+/* Google injects its own top banner + body offset on translate; suppress both. */
+.goog-te-banner-frame {
+    display: none !important;
+}
+
+body {
+    top: 0 !important;
+}
+
 /* RTL support */
 body.translated-rtl {
     direction: rtl;
@@ -911,46 +827,6 @@ body.translated-rtl .input-group {
 
 body.translated-rtl .input-help {
     text-align: right;
-}
-
-.map-overlay {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    border-radius: 8px;
-    overflow: hidden;
-    background-color: #ffffff;
-}
-
-#flightPathCanvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-}
-
-#map {
-    width: 100%;
-    height: 500px;
-    margin: 20px 0;
-    position: relative;
-    background-color: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#usMapImage {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    z-index: 1;
-    background-color: #ffffff;
 }
 
 /* Leaflet map styles */
@@ -971,11 +847,6 @@ body.translated-rtl .input-help {
     border: 2px solid white;
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
     margin: 0 auto;
-}
-
-.marker.start {
-    width: 14px;
-    height: 14px;
 }
 
 .marker-label {
