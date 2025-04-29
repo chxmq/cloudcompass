@@ -2,21 +2,15 @@ let map;
 let markers = [];
 let flightPath;
 
-// Cache for airport coordinates to reduce API calls
+// Cache for airport coordinates to reduce repeated lookups
 const airportCoordinatesCache = {};
-
-// Configuration object
-const config = {
-    apiKey: '', // Will be set from environment variable or configuration
-    apiEndpoint: 'https://airlabs.co/api/v9'
-};
 
 // Set the backend URL based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'
     : window.location.origin;
 
-// Add a simple airport coordinates database
+// Local airport coordinates database (used to plot waypoints on the map)
 const airportCoordinates = {
     // Major International Airports
     'KATL': { lat: 33.6367, lng: -84.4281, name: 'Hartsfield-Jackson Atlanta International' },
@@ -72,37 +66,29 @@ const airportCoordinates = {
     'KBNA': { lat: 36.1245, lng: -86.6782, name: 'Nashville International' }
 };
 
-// Add US state boundaries data (simplified)
-const usStatesData = {
-    // Simplified coordinates for continental US outline
-    outline: [
-        [-125, 48], [-123, 48], [-122, 47], [-120, 45], [-117, 43], 
-        [-116, 41], [-114, 39], [-112, 37], [-111, 35], [-106, 32],
-        [-97, 25], [-80, 25], [-75, 35], [-69, 44], [-67, 45],
-        [-70, 43], [-75, 39], [-77, 37], [-81, 31], [-83, 30],
-        [-87, 30], [-89, 30], [-94, 29], [-97, 28], [-100, 29],
-        [-104, 31], [-107, 32], [-111, 31], [-114, 32], [-117, 33],
-        [-120, 34], [-123, 38], [-124, 40], [-124, 42], [-125, 46],
-        [-125, 48]
-    ]
-};
+// Escapes text pulled from external sources (raw weather data, LLM summaries) before it's
+// dropped into innerHTML, so it can never be interpreted as markup.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function initMap() {
-    console.log('Initializing map...');
-    
-    // Initialize the map centered on US
     map = L.map('map').setView([39.8283, -98.5795], 4);
 
-    // Add the tile layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 18
     }).addTo(map);
 
-    // Create and add the legend
     const legend = L.control({ position: 'bottomright' });
-    
-    legend.onAdd = function(map) {
+
+    legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
         div.innerHTML = `
             <div class="legend-item">
@@ -120,10 +106,9 @@ function initMap() {
         `;
         return div;
     };
-    
+
     legend.addTo(map);
 
-    // Ensure proper sizing
     setTimeout(() => {
         map.invalidateSize();
     }, 100);
@@ -139,11 +124,11 @@ async function fetchWeatherData(flightPlan) {
             throw new Error(errorData.details || `Server returned ${response.status}: ${response.statusText}`);
         }
         const data = await response.json();
-        
+
         if (data.error) {
             throw new Error(data.error);
         }
-        
+
         return { weatherData: data, waypoints };
     } catch (error) {
         console.error('Error fetching weather data:', error);
@@ -152,7 +137,7 @@ async function fetchWeatherData(flightPlan) {
 }
 
 function decodeMETAR(metar) {
-    const decoded = {
+    return {
         station: metar.substring(0, 4),
         time: metar.substring(5, 11),
         wind: metar.match(/KT(\d{3}|VRB)(\d{2,3})/),
@@ -162,8 +147,6 @@ function decodeMETAR(metar) {
         temperature: metar.match(/ (\d{2})\/(\d{2})/),
         altimeter: metar.match(/A(\d{4})/)
     };
-
-    return decoded;
 }
 
 function formatPIREP(pirep) {
@@ -176,13 +159,13 @@ function formatPIREP(pirep) {
     const icing = pirep.match(/\/IC ([A-Z]+)/);
 
     let formatted = '<div class="pirep-item">';
-    if (altitude) formatted += `<p><strong>Altitude:</strong> FL${altitude[1]}</p>`;
-    if (location) formatted += `<p><strong>Location:</strong> ${location[1]} ${location[2]}${location[3]}</p>`;
-    if (time) formatted += `<p><strong>Time:</strong> ${time[1]}:${time[2]}Z</p>`;
-    if (weather) formatted += `<p><strong>Type:</strong> ${weather[1]}</p>`;
-    if (turbulence) formatted += `<p><strong>Turbulence:</strong> ${turbulence[1]}</p>`;
-    if (icing) formatted += `<p><strong>Icing:</strong> ${icing[1]}</p>`;
-    if (remarks) formatted += `<p><strong>Remarks:</strong> ${remarks[1]}</p>`;
+    if (altitude) formatted += `<p><strong>Altitude:</strong> FL${escapeHtml(altitude[1])}</p>`;
+    if (location) formatted += `<p><strong>Location:</strong> ${escapeHtml(location[1])} ${escapeHtml(location[2])}${escapeHtml(location[3])}</p>`;
+    if (time) formatted += `<p><strong>Time:</strong> ${escapeHtml(time[1])}:${escapeHtml(time[2])}Z</p>`;
+    if (weather) formatted += `<p><strong>Type:</strong> ${escapeHtml(weather[1])}</p>`;
+    if (turbulence) formatted += `<p><strong>Turbulence:</strong> ${escapeHtml(turbulence[1])}</p>`;
+    if (icing) formatted += `<p><strong>Icing:</strong> ${escapeHtml(icing[1])}</p>`;
+    if (remarks) formatted += `<p><strong>Remarks:</strong> ${escapeHtml(remarks[1])}</p>`;
     formatted += '</div>';
 
     return formatted;
@@ -190,61 +173,51 @@ function formatPIREP(pirep) {
 
 function formatSIGMET(sigmet) {
     let formatted = '<div class="sigmet-details">';
-    
-    // Extract SIGMET ID and type
+
     const idMatch = sigmet.match(/([A-Z]{1,2}\d{1,2})/);
     const typeMatch = sigmet.match(/SIGMET|AIRMET|WST/);
-    
+
     if (idMatch) {
-        formatted += `<p><strong>ID:</strong> ${idMatch[1]}</p>`;
-    }
-    
-    if (typeMatch) {
-        formatted += `<p><strong>Type:</strong> ${typeMatch[0]}</p>`;
+        formatted += `<p><strong>ID:</strong> ${escapeHtml(idMatch[1])}</p>`;
     }
 
-    // Extract validity period
+    if (typeMatch) {
+        formatted += `<p><strong>Type:</strong> ${escapeHtml(typeMatch[0])}</p>`;
+    }
+
     const validMatch = sigmet.match(/VALID (\d{6})\/(\d{6})/);
     if (validMatch) {
-        const startTime = validMatch[1];
-        const endTime = validMatch[2];
-        formatted += `<p><strong>Valid:</strong> ${formatTime(startTime)} to ${formatTime(endTime)}</p>`;
+        formatted += `<p><strong>Valid:</strong> ${formatTime(validMatch[1])} to ${formatTime(validMatch[2])}</p>`;
     }
 
-    // Extract affected area
     const areaMatch = sigmet.match(/AREA ([A-Z0-9]+)/);
     if (areaMatch) {
-        formatted += `<p><strong>Area:</strong> ${areaMatch[1]}</p>`;
+        formatted += `<p><strong>Area:</strong> ${escapeHtml(areaMatch[1])}</p>`;
     }
 
-    // Extract FIR if present
     const firMatch = sigmet.match(/([A-Z]{4}) FIR/);
     if (firMatch) {
-        formatted += `<p><strong>FIR:</strong> ${firMatch[1]}</p>`;
+        formatted += `<p><strong>FIR:</strong> ${escapeHtml(firMatch[1])}</p>`;
     }
 
-    // Extract weather phenomenon
     const wxMatch = sigmet.match(/\b(TS|TURB|ICE|MTW|DS|SS|VA|TC|RDOACT)\b/);
     if (wxMatch) {
-        formatted += `<p><strong>Phenomenon:</strong> ${getWeatherPhenomenonDescription(wxMatch[1])}</p>`;
+        formatted += `<p><strong>Phenomenon:</strong> ${escapeHtml(getWeatherPhenomenonDescription(wxMatch[1]))}</p>`;
     }
 
-    // Extract intensity/descriptor if present
     const intensityMatch = sigmet.match(/\b(ISOL|OCNL|FRQ|OBSC|EMBD|SQL)\b/);
     if (intensityMatch) {
-        formatted += `<p><strong>Intensity:</strong> ${getIntensityDescription(intensityMatch[1])}</p>`;
+        formatted += `<p><strong>Intensity:</strong> ${escapeHtml(getIntensityDescription(intensityMatch[1]))}</p>`;
     }
 
-    // Extract movement
     const movementMatch = sigmet.match(/MOV ([NSEW]{1,2}) (\d+)KT/);
     if (movementMatch) {
-        formatted += `<p><strong>Movement:</strong> ${movementMatch[1]} at ${movementMatch[2]} knots</p>`;
+        formatted += `<p><strong>Movement:</strong> ${escapeHtml(movementMatch[1])} at ${escapeHtml(movementMatch[2])} knots</p>`;
     }
 
-    // Extract altitude information
     const altitudeMatch = sigmet.match(/(\d{3})\/(\d{3})/);
     if (altitudeMatch) {
-        formatted += `<p><strong>Altitude:</strong> FL${altitudeMatch[1]} to FL${altitudeMatch[2]}</p>`;
+        formatted += `<p><strong>Altitude:</strong> FL${escapeHtml(altitudeMatch[1])} to FL${escapeHtml(altitudeMatch[2])}</p>`;
     }
 
     formatted += '</div>';
@@ -287,33 +260,34 @@ function getIntensityDescription(code) {
 
 async function updateUI(data) {
     const { weatherData, waypoints } = data;
-    
+    const routeInputEl = document.getElementById('routeInput');
+
     // Update consolidated summary
     try {
-        const response = await fetch(`${BACKEND_URL}/api/consolidated-summary?route=${encodeURIComponent(routeInput.value)}`);
+        const response = await fetch(`${BACKEND_URL}/api/consolidated-summary?route=${encodeURIComponent(routeInputEl.value)}`);
         if (response.ok) {
             const summaryData = await response.json();
             const consolidatedSummary = document.getElementById('consolidatedSummary');
             consolidatedSummary.innerHTML = `
                 <div class="summary-section">
                     <h3><i class="fas fa-plane"></i> Flight Analysis</h3>
-                    <p>${summaryData.summary}</p>
+                    <p>${escapeHtml(summaryData.summary)}</p>
                 </div>
                 <div class="weather-highlights">
                     <div class="weather-highlight">
                         <i class="fas fa-cloud-sun"></i>
                         <h4>Overall Conditions</h4>
-                        <p>${getOverallConditions(weatherData)}</p>
+                        <p>${escapeHtml(getOverallConditions(weatherData))}</p>
                     </div>
                     <div class="weather-highlight">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h4>Key Hazards</h4>
-                        <p>${getKeyHazards(weatherData)}</p>
+                        <p>${escapeHtml(getKeyHazards(weatherData))}</p>
                     </div>
                     <div class="weather-highlight">
                         <i class="fas fa-chart-line"></i>
                         <h4>Route Analysis</h4>
-                        <p>${getRouteAnalysis(waypoints)}</p>
+                        <p>${escapeHtml(getRouteAnalysis(waypoints))}</p>
                     </div>
                 </div>
             `;
@@ -333,13 +307,13 @@ async function updateUI(data) {
         metarContent.innerHTML = weatherData.metar
             .map((metar, index) => `
                 <div class="weather-item">
-                    <h3 class="airport-header">${metar.substring(0, 4)}</h3>
-                    <div class="raw-data">${metar}</div>
+                    <h3 class="airport-header">${escapeHtml(metar.substring(0, 4))}</h3>
+                    <div class="raw-data">${escapeHtml(metar)}</div>
                     <div class="decoded-data">
                         <div class="technical-decode">${formatDecodedMetar(decodeMETAR(metar))}</div>
                         <div class="plain-english">
                             <h4>In Plain English:</h4>
-                            ${weatherData.summaries.metar[index] || 'Summary unavailable'}
+                            ${escapeHtml(weatherData.summaries.metar[index]) || 'Summary unavailable'}
                         </div>
                     </div>
                 </div>
@@ -351,7 +325,6 @@ async function updateUI(data) {
     // Update TAF section
     const tafContent = document.getElementById('tafContent');
     if (weatherData.taf && weatherData.taf.length > 0) {
-        // Group TAFs by airport
         const tafsByAirport = {};
         weatherData.taf.forEach(taf => {
             const airport = taf.substring(0, 4);
@@ -361,17 +334,16 @@ async function updateUI(data) {
             tafsByAirport[airport].push(taf);
         });
 
-        // Create HTML for each airport's TAF
         const tafHtml = Object.entries(tafsByAirport).map(([airport, tafs]) => {
             const summary = weatherData.summaries.taf.find(s => s.airport === airport);
             return `
                 <div class="weather-item">
-                    <h3 class="airport-header">${airport} Forecast</h3>
-                    <div class="raw-data">${tafs.join('\n')}</div>
+                    <h3 class="airport-header">${escapeHtml(airport)} Forecast</h3>
+                    <div class="raw-data">${escapeHtml(tafs.join('\n'))}</div>
                     <div class="decoded-data">
                         <div class="plain-english">
                             <h4>In Plain English:</h4>
-                            ${summary ? summary.summary : 'Summary unavailable'}
+                            ${summary ? escapeHtml(summary.summary) : 'Summary unavailable'}
                         </div>
                     </div>
                 </div>
@@ -390,12 +362,12 @@ async function updateUI(data) {
             .map((pirep, index) => `
                 <div class="weather-item">
                     <h3 class="airport-header">Pilot Report</h3>
-                    <div class="raw-data">${pirep}</div>
+                    <div class="raw-data">${escapeHtml(pirep)}</div>
                     <div class="decoded-data">
                         <div class="technical-decode">${formatPIREP(pirep)}</div>
                         <div class="plain-english">
                             <h4>In Plain English:</h4>
-                            ${weatherData.summaries.pirep[index] || 'Summary unavailable'}
+                            ${escapeHtml(weatherData.summaries.pirep[index]) || 'Summary unavailable'}
                         </div>
                     </div>
                 </div>
@@ -411,12 +383,12 @@ async function updateUI(data) {
             .map((sigmet, index) => `
                 <div class="weather-item">
                     <h3 class="airport-header">Significant Weather</h3>
-                    <div class="raw-data">${sigmet}</div>
+                    <div class="raw-data">${escapeHtml(sigmet)}</div>
                     <div class="decoded-data">
                         <div class="technical-decode">${formatSIGMET(sigmet)}</div>
                         <div class="plain-english">
                             <h4>In Plain English:</h4>
-                            ${weatherData.summaries.sigmet[index] || 'Summary unavailable'}
+                            ${escapeHtml(weatherData.summaries.sigmet[index]) || 'Summary unavailable'}
                         </div>
                     </div>
                 </div>
@@ -425,7 +397,6 @@ async function updateUI(data) {
         sigmetContent.innerHTML = '<div class="no-data">No SIGMETs affecting this route</div>';
     }
 
-    // Update map and summary
     generateWeatherSummary(weatherData, waypoints);
     updateMap(waypoints, weatherData);
 }
@@ -433,22 +404,22 @@ async function updateUI(data) {
 function formatDecodedMetar(decoded) {
     let html = '<div class="decoded-metar">';
     if (decoded.wind) {
-        html += `<p>Wind: ${decoded.wind[1]}° at ${decoded.wind[2]} knots</p>`;
+        html += `<p>Wind: ${escapeHtml(decoded.wind[1])}° at ${escapeHtml(decoded.wind[2])} knots</p>`;
     }
     if (decoded.visibility) {
-        html += `<p>Visibility: ${decoded.visibility[1]} statute miles</p>`;
+        html += `<p>Visibility: ${escapeHtml(decoded.visibility[1])} statute miles</p>`;
     }
     if (decoded.weather) {
-        html += `<p>Weather: ${decoded.weather.join(', ')}</p>`;
+        html += `<p>Weather: ${escapeHtml(decoded.weather.join(', '))}</p>`;
     }
     if (decoded.clouds) {
-        html += `<p>Clouds: ${decoded.clouds.join(', ')}</p>`;
+        html += `<p>Clouds: ${escapeHtml(decoded.clouds.join(', '))}</p>`;
     }
     if (decoded.temperature) {
-        html += `<p>Temperature: ${decoded.temperature[1]}°C / Dewpoint: ${decoded.temperature[2]}°C</p>`;
+        html += `<p>Temperature: ${escapeHtml(decoded.temperature[1])}°C / Dewpoint: ${escapeHtml(decoded.temperature[2])}°C</p>`;
     }
     if (decoded.altimeter) {
-        html += `<p>Altimeter: ${decoded.altimeter[1]} inHg</p>`;
+        html += `<p>Altimeter: ${escapeHtml(decoded.altimeter[1])} inHg</p>`;
     }
     html += '</div>';
     return html;
@@ -461,10 +432,10 @@ function generateWeatherSummary(weatherData, waypoints) {
         const metar = weatherData.metar.find(m => m.startsWith(waypoint.icao));
         let weatherCondition = 'vfr';
         let weatherLabel = 'VFR';
-        
+
         if (metar) {
             const decoded = decodeMETAR(metar);
-            
+
             if (decoded.weather && decoded.weather.some(w => ['TS', 'SQ', 'FC'].includes(w))) {
                 weatherCondition = 'severe-wx';
                 weatherLabel = 'SEVERE-WX';
@@ -476,13 +447,13 @@ function generateWeatherSummary(weatherData, waypoints) {
 
         summary += `
             <div class="summary-item ${weatherCondition}">
-                <h3>${waypoint.icao} <span style="opacity: 0.8">${waypoint.altitude.toLocaleString()} ft</span></h3>
+                <h3>${escapeHtml(waypoint.icao)} <span style="opacity: 0.8">${waypoint.altitude.toLocaleString()} ft</span></h3>
                 <div class="weather-condition-label">${weatherLabel}</div>
-                <p>Wind: ${metar ? getWindInfo(metar) : 'N/A'}</p>
-                <p>Visibility: ${metar ? getVisibilityInfo(metar) : 'N/A'}</p>
+                <p>Wind: ${metar ? escapeHtml(getWindInfo(metar)) : 'N/A'}</p>
+                <p>Visibility: ${metar ? escapeHtml(getVisibilityInfo(metar)) : 'N/A'}</p>
                 ${index < waypoints.length - 1 ? `
                     <div class="next-waypoint">
-                        Next: ${waypoints[index + 1].icao} at ${waypoints[index + 1].altitude.toLocaleString()} ft
+                        Next: ${escapeHtml(waypoints[index + 1].icao)} at ${waypoints[index + 1].altitude.toLocaleString()} ft
                     </div>
                 ` : ''}
             </div>
@@ -496,9 +467,7 @@ function generateWeatherSummary(weatherData, waypoints) {
 function getWindInfo(metar) {
     const windMatch = metar.match(/(\d{3}|VRB)(\d{2,3})KT/);
     if (windMatch) {
-        const direction = windMatch[1];
-        const speed = windMatch[2];
-        return `${direction}° at ${speed} knots`;
+        return `${windMatch[1]}° at ${windMatch[2]} knots`;
     }
     return 'N/A';
 }
@@ -511,189 +480,40 @@ function getVisibilityInfo(metar) {
     return 'N/A';
 }
 
-function calculateTotalDistance(waypoints) {
-    // This is a placeholder - you'll need to implement actual distance calculation
-    // based on the coordinates of the waypoints
-    return 'N/A';
-}
-
-// Initialize API key
-async function initializeApiKey() {
-    try {
-        const response = await fetch('/api/config');
-        const data = await response.json();
-        config.apiKey = data.apiKey;
-    } catch (error) {
-        console.error('Failed to initialize API key:', error);
-        // Fallback to local database only
-    }
-}
-
-// Update the getAirportCoordinates function to use AirLabs API
+// Looks up airport coordinates from the local database so waypoints can be plotted on the map.
 async function getAirportCoordinates(airportCode) {
     if (!airportCode) {
-        console.error('Airport code is undefined');
         return null;
     }
 
-    // First check cache
     if (airportCoordinatesCache[airportCode]) {
         return airportCoordinatesCache[airportCode];
     }
 
-    try {
-        if (!config.apiKey) {
-            // If no API key, fallback to local database
-            if (airportCoordinates[airportCode]) {
-                return airportCoordinates[airportCode];
-            }
-            return null; // Return null instead of throwing error
-        }
-
-        // Using AirLabs API
-        const response = await fetch(`${config.apiEndpoint}/airports?iata_code=${airportCode}&api_key=${config.apiKey}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            console.warn(`API Error for ${airportCode}: ${data.error.message}`);
-            return null; // Return null instead of throwing error
-        }
-
-        if (data.response && data.response.length > 0) {
-            const airport = data.response[0];
-            const coordinates = {
-                lat: parseFloat(airport.lat),
-                lng: parseFloat(airport.lng),
-                name: airport.name
-            };
-            
-            // Cache the result
-            airportCoordinatesCache[airportCode] = coordinates;
-            return coordinates;
-        } else {
-            // Fallback to local database if API doesn't have the airport
-            if (airportCoordinates[airportCode]) {
-                return airportCoordinates[airportCode];
-            }
-            return null; // Return null instead of throwing error
-        }
-    } catch (error) {
-        console.warn(`Error fetching coordinates for ${airportCode}:`, error);
-        
-        // Fallback to local database if API call fails
-        if (airportCoordinates[airportCode]) {
-            return airportCoordinates[airportCode];
-        }
-        return null;
-    }
-}
-
-function drawGrid(ctx, width, height, minLat, maxLat, minLng, maxLng) {
-    // Draw light grid lines
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-
-    // Draw latitude lines every 5 degrees
-    for (let lat = Math.floor(minLat/5)*5; lat <= maxLat; lat += 5) {
-        ctx.beginPath();
-        const y = height - ((lat - minLat) / (maxLat - minLat)) * height;
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-        
-        // Label latitude
-        ctx.fillStyle = '#999';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${lat}°N`, 5, y - 5);
+    const coordinates = airportCoordinates[airportCode];
+    if (coordinates) {
+        airportCoordinatesCache[airportCode] = coordinates;
+        return coordinates;
     }
 
-    // Draw longitude lines every 5 degrees
-    for (let lng = Math.floor(minLng/5)*5; lng <= maxLng; lng += 5) {
-        ctx.beginPath();
-        const x = ((lng - minLng) / (maxLng - minLng)) * width;
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-        
-        // Label longitude
-        ctx.fillStyle = '#999';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${lng}°W`, x, height - 5);
-    }
-}
-
-function drawUSMap(ctx, width, height, minLat, maxLat, minLng, maxLng) {
-    // Function to convert lat/lng to canvas coordinates
-    function projectPoint(lat, lng) {
-        const x = ((lng - minLng) / (maxLng - minLng)) * width;
-        const y = height - ((lat - minLat) / (maxLat - minLat)) * height;
-        return [x, y];
-    }
-
-    // Draw US outline
-    ctx.beginPath();
-    usStatesData.outline.forEach((point, index) => {
-        const [x, y] = projectPoint(point[1], point[0]);
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.closePath();
-    
-    // Fill with a light color
-    ctx.fillStyle = 'rgba(240, 240, 240, 0.8)';
-    ctx.fill();
-    
-    // Draw outline
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-}
-
-function drawMapBackground(ctx, width, height, bounds) {
-    // Draw base background
-    ctx.fillStyle = '#f8f9fa';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw water background
-    ctx.fillStyle = '#e6f3ff';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw US map
-    drawUSMap(ctx, width, height, bounds.minLat, bounds.maxLat, bounds.minLng, bounds.maxLng);
-
-    // Draw subtle gradient overlay
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
-    gradient.addColorStop(1, 'rgba(240, 240, 255, 0.1)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+    console.warn(`No coordinates found for airport ${airportCode}; it won't be plotted on the map.`);
+    return null;
 }
 
 function drawFlightPath(waypoints) {
-    console.log('Drawing flight path for waypoints:', waypoints);
-    
-    // Clear existing markers and path
     if (flightPath) {
         map.removeLayer(flightPath);
     }
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
 
-    // Filter out waypoints without valid coordinates
     const validWaypoints = waypoints.filter(wp => wp.lat && wp.lng);
-    console.log('Valid waypoints:', validWaypoints);
-    
+
     if (validWaypoints.length === 0) {
-        console.error('No valid waypoints to display');
+        console.warn('No valid waypoints to display on the map');
         return;
     }
 
-    // Create the flight path
     const pathCoordinates = validWaypoints.map(wp => [wp.lat, wp.lng]);
     flightPath = L.polyline(pathCoordinates, {
         color: 'rgba(59, 130, 246, 0.8)',
@@ -701,9 +521,7 @@ function drawFlightPath(waypoints) {
         dashArray: '5, 5'
     }).addTo(map);
 
-    // Add markers for each waypoint
     validWaypoints.forEach((waypoint, index) => {
-        // Determine marker type based on position
         let markerType;
         if (index === 0) {
             markerType = 'departure';
@@ -712,16 +530,15 @@ function drawFlightPath(waypoints) {
         } else {
             markerType = 'waypoint';
         }
-        
-        // Create custom icon
+
         const icon = L.divIcon({
             className: 'custom-marker',
             html: `
                 <div class="marker-container">
                     <div class="marker ${markerType}"></div>
                     <div class="marker-label">
-                        <div class="airport-code">${waypoint.icao}</div>
-                        <div class="altitude">${(waypoint.altitude/1000).toFixed(1)}K ft</div>
+                        <div class="airport-code">${escapeHtml(waypoint.icao)}</div>
+                        <div class="altitude">${(waypoint.altitude / 1000).toFixed(1)}K ft</div>
                     </div>
                 </div>
             `,
@@ -729,96 +546,71 @@ function drawFlightPath(waypoints) {
             iconAnchor: [30, 20]
         });
 
-        // Add marker to map
-        const marker = L.marker([waypoint.lat, waypoint.lng], {icon}).addTo(map);
+        const marker = L.marker([waypoint.lat, waypoint.lng], { icon }).addTo(map);
         markers.push(marker);
     });
 
-    // Fit map bounds to show all waypoints
     if (validWaypoints.length === 1) {
-        // For single waypoint, center on it with a reasonable zoom level
         map.setView([validWaypoints[0].lat, validWaypoints[0].lng], 10);
     } else {
-        // For multiple waypoints, fit bounds to show all
         const bounds = L.latLngBounds(validWaypoints.map(wp => [wp.lat, wp.lng]));
-        map.fitBounds(bounds, {padding: [50, 50]});
+        map.fitBounds(bounds, { padding: [50, 50] });
     }
 }
 
-// Update the updateMap function to handle the waypoints correctly
-async function updateMap(waypoints, weatherData) {
-    console.log('Updating map with waypoints:', waypoints);
+async function updateMap(waypoints) {
     try {
-        // Get coordinates for all waypoints
         const waypointsWithCoords = [];
         for (const waypoint of waypoints) {
-            console.log('Getting coordinates for:', waypoint.icao);
             const coords = await getAirportCoordinates(waypoint.icao);
-            console.log('Coordinates received:', coords);
             if (coords) {
-                waypointsWithCoords.push({
-                    ...waypoint,
-                    ...coords
-                });
-            } else {
-                console.warn(`No coordinates found for airport ${waypoint.icao}`);
+                waypointsWithCoords.push({ ...waypoint, ...coords });
             }
         }
 
-        console.log('Waypoints with coordinates:', waypointsWithCoords);
-        
         if (waypointsWithCoords.length === 0) {
-            console.warn('No valid waypoints found');
-            return; // Just return without showing error
+            return;
         }
 
-        // Draw the flight path
         drawFlightPath(waypointsWithCoords);
     } catch (error) {
         console.error('Error updating map:', error);
-        // Don't show error message to user
     }
 }
 
-// Add a function to clear all previous data
 function clearAllData() {
-    // Clear map data
     if (flightPath) {
         map.removeLayer(flightPath);
     }
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
-    
-    // Clear weather cards
+
     document.getElementById('metarContent').innerHTML = '<div class="no-data">Loading METAR reports...</div>';
     document.getElementById('tafContent').innerHTML = '<div class="no-data">Loading TAF reports...</div>';
     document.getElementById('pirepContent').innerHTML = '<div class="no-data">Loading PIREP reports...</div>';
     document.getElementById('sigmetContent').innerHTML = '<div class="no-data">Loading SIGMET reports...</div>';
-    
-    // Clear route summary
     document.getElementById('summaryContent').innerHTML = '<div class="no-data">Loading route summary...</div>';
 }
 
-// Listen for language changes and update content
-document.addEventListener('DOMContentLoaded', async () => {
-    await initializeApiKey();
+document.addEventListener('DOMContentLoaded', () => {
     initMap();
-    
-    // Initialize all weather cards with empty states
+
     document.getElementById('metarContent').innerHTML = '<div class="no-data">Enter a flight plan to see METAR reports</div>';
     document.getElementById('tafContent').innerHTML = '<div class="no-data">Enter a flight plan to see TAF reports</div>';
     document.getElementById('pirepContent').innerHTML = '<div class="no-data">Enter a flight plan to see PIREP reports</div>';
     document.getElementById('sigmetContent').innerHTML = '<div class="no-data">Enter a flight plan to see SIGMET reports</div>';
     document.getElementById('summaryContent').innerHTML = '<div class="no-data">Enter a flight plan to see route summary and weather conditions</div>';
 
-    // Add event listener for language changes
+    const searchBtn = document.getElementById('searchBtn');
+    const routeInput = document.getElementById('routeInput');
+
+    // Re-run the search when Google Translate swaps content, so dynamically inserted
+    // weather text gets translated too.
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                 const target = mutation.target;
                 if (target.classList.contains('translated-ltr') || target.classList.contains('translated-rtl')) {
-                    // Reinitialize any dynamic content that needs to be translated
-                    const routeInput = document.getElementById('routeInput');
                     if (routeInput.value) {
                         searchBtn.click();
                     }
@@ -827,45 +619,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Start observing the body for language changes
     observer.observe(document.body, {
         attributes: true,
         attributeFilter: ['class']
     });
 
-    // Add event listeners
-    const searchBtn = document.getElementById('searchBtn');
-    const routeInput = document.getElementById('routeInput');
-    
     searchBtn.addEventListener('click', async () => {
-        const routeInput = document.getElementById('routeInput').value.trim();
-        
-        if (!routeInput) {
+        const flightPlanValue = routeInput.value.trim();
+
+        if (!flightPlanValue) {
             showError('Please enter a flight plan');
             return;
         }
 
         try {
-            FlightPlanUtils.parseFlightPlan(routeInput);
+            FlightPlanUtils.parseFlightPlan(flightPlanValue);
         } catch (error) {
             showError(error.message);
             return;
         }
 
         try {
-            // Add loading state
             searchBtn.classList.add('loading');
             searchBtn.disabled = true;
-            
-            // Clear previous data before fetching new data
+
             clearAllData();
-            
-            const data = await fetchWeatherData(routeInput);
+
+            const data = await fetchWeatherData(flightPlanValue);
             updateUI(data);
         } catch (error) {
             showError(error.message);
         } finally {
-            // Remove loading state
             searchBtn.classList.remove('loading');
             searchBtn.disabled = false;
         }
@@ -877,9 +661,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Add read aloud functionality
+    // Read aloud functionality
     const readAloudBtn = document.getElementById('readAloudBtn');
-    let speechSynthesis = window.speechSynthesis;
+    const speechSynthesis = window.speechSynthesis;
     let isReading = false;
 
     readAloudBtn.addEventListener('click', () => {
@@ -900,25 +684,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         readAloudBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Reading';
         readAloudBtn.disabled = false;
 
-        // Get all the text content from the summary
         const summaryItems = summaryContent.querySelectorAll('.summary-item');
         let textToRead = '';
 
-        summaryItems.forEach((item, index) => {
+        summaryItems.forEach((item) => {
             const airport = item.querySelector('h3').textContent;
             const weatherLabel = item.querySelector('.weather-condition-label').textContent;
             const wind = item.querySelector('p:nth-of-type(1)').textContent;
             const visibility = item.querySelector('p:nth-of-type(2)').textContent;
-            
+
             textToRead += `At ${airport}, ${weatherLabel}. ${wind}. ${visibility}. `;
-            
+
             const nextWaypoint = item.querySelector('.next-waypoint');
             if (nextWaypoint) {
                 textToRead += `Next waypoint: ${nextWaypoint.textContent}. `;
             }
         });
 
-        // Create and speak the utterance
         const utterance = new SpeechSynthesisUtterance(textToRead);
         utterance.rate = 0.9;
         utterance.pitch = 1;
@@ -943,33 +725,31 @@ function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
-    
+
     const searchContainer = document.querySelector('.search-container');
     const existingError = searchContainer.querySelector('.error-message');
     if (existingError) {
         existingError.remove();
     }
-    
+
     searchContainer.appendChild(errorDiv);
     setTimeout(() => errorDiv.remove(), 5000);
 }
 
 // Notes functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const notesButton = document.getElementById('notesButton');
     const notesPanel = document.querySelector('.notes-panel');
     const closeNotes = document.querySelector('.close-notes');
     const notesTextarea = document.getElementById('notesTextarea');
     const notesStatus = document.querySelector('.notes-status');
     const notesHeader = document.querySelector('.notes-header');
-    
-    // Load saved notes
+
     const savedNotes = localStorage.getItem('flightNotes');
     if (savedNotes) {
         notesTextarea.value = savedNotes;
     }
-    
-    // Load saved position
+
     const savedPosition = localStorage.getItem('notesPosition');
     if (savedPosition) {
         const { x, y } = JSON.parse(savedPosition);
@@ -978,35 +758,30 @@ document.addEventListener('DOMContentLoaded', function() {
         notesPanel.style.right = 'auto';
         notesPanel.style.bottom = 'auto';
     }
-    
-    // Toggle notes panel
+
     notesButton.addEventListener('click', () => {
         notesPanel.classList.toggle('show');
     });
-    
-    // Close notes panel
+
     closeNotes.addEventListener('click', () => {
         notesPanel.classList.remove('show');
     });
-    
-    // Auto-save notes
+
     let saveTimeout;
     notesTextarea.addEventListener('input', () => {
         clearTimeout(saveTimeout);
         notesStatus.textContent = 'Saving...';
-        
+
         saveTimeout = setTimeout(() => {
             localStorage.setItem('flightNotes', notesTextarea.value);
             notesStatus.textContent = 'Auto-saved';
-            
-            // Show saved status briefly
+
             setTimeout(() => {
                 notesStatus.style.opacity = '0.7';
             }, 2000);
         }, 1000);
     });
-    
-    // Dragging functionality
+
     let isDragging = false;
     let currentX;
     let currentY;
@@ -1031,7 +806,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function drag(e) {
         if (isDragging) {
             e.preventDefault();
-            
+
             currentX = e.clientX - initialX;
             currentY = e.clientY - initialY;
 
@@ -1042,12 +817,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function dragEnd(e) {
+    function dragEnd() {
         initialX = currentX;
         initialY = currentY;
         isDragging = false;
-        
-        // Save position
+
         const rect = notesPanel.getBoundingClientRect();
         localStorage.setItem('notesPosition', JSON.stringify({
             x: rect.left,
@@ -1058,8 +832,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function setTranslate(xPos, yPos, el) {
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     }
-    
-    // Close notes panel when clicking outside
+
     document.addEventListener('click', (e) => {
         if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
             notesPanel.classList.remove('show');
@@ -1103,4 +876,4 @@ function getRouteAnalysis(waypoints) {
     const maxAlt = Math.max(...altitudes);
     const minAlt = Math.min(...altitudes);
     return `Altitude range: ${minAlt.toLocaleString()}ft - ${maxAlt.toLocaleString()}ft`;
-} 
+}
