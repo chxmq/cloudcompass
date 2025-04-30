@@ -759,12 +759,17 @@ document.addEventListener('DOMContentLoaded', function () {
         notesPanel.style.bottom = 'auto';
     }
 
+    function setNotesOpen(open) {
+        notesPanel.classList.toggle('show', open);
+        notesButton.setAttribute('aria-expanded', String(open));
+    }
+
     notesButton.addEventListener('click', () => {
-        notesPanel.classList.toggle('show');
+        setNotesOpen(!notesPanel.classList.contains('show'));
     });
 
     closeNotes.addEventListener('click', () => {
-        notesPanel.classList.remove('show');
+        setNotesOpen(false);
     });
 
     let saveTimeout;
@@ -835,7 +840,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('click', (e) => {
         if (!notesPanel.contains(e.target) && !notesButton.contains(e.target)) {
-            notesPanel.classList.remove('show');
+            setNotesOpen(false);
         }
     });
 });

@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>✈️ Aviation Weather Dashboard</title>
+    <title>CloudCompass — Aviation Weather Dashboard</title>
+    <meta name="description" content="Aviation weather dashboard for flight planning: METAR, TAF, PIREP and SIGMET data decoded and summarized in plain English, with route mapping.">
+    <meta name="theme-color" content="#5D4FFF">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -29,17 +32,19 @@
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-cloud-sun"></i> Aviation Weather Dashboard</h1>
+            <h1><i class="fas fa-cloud-sun" aria-hidden="true"></i> Aviation Weather Dashboard</h1>
             <p class="subtitle">Your real-time weather companion for safe flights</p>
             <div id="google_translate_element" class="translate-container"></div>
         </header>
-        
+
+        <main>
         <div class="search-container">
             <div class="input-group">
+                <label for="routeInput" class="sr-only">Flight plan: airport code and altitude pairs</label>
                 <input type="text" id="routeInput" placeholder="Enter flight plan (e.g., KPHX,1500,KBXK,12000,KPSP,20000,KLAX,50)">
                 <button id="searchBtn">
-                    <span class="button-text"><i class="fas fa-search"></i> Get Weather <i class="fas fa-cloud-sun-rain"></i></span>
-                    <div class="loading-spinner"></div>
+                    <span class="button-text"><i class="fas fa-search" aria-hidden="true"></i> Get Weather <i class="fas fa-cloud-sun-rain" aria-hidden="true"></i></span>
+                    <div class="loading-spinner" aria-hidden="true"></div>
                 </button>
             </div>
             <p class="input-help">Format: Airport ID, Altitude (ft), Airport ID, Altitude (ft), etc.</p>
@@ -49,40 +54,40 @@
             <div class="weather-cards-container">
                 <div class="weather-card" id="metarCard">
                     <h2>
-                        <span><i class="fas fa-plane"></i> METAR</span>
-                        <i class="fas fa-wind"></i>
+                        <span><i class="fas fa-plane" aria-hidden="true"></i> METAR</span>
+                        <i class="fas fa-wind" aria-hidden="true"></i>
                     </h2>
-                    <div class="weather-content" id="metarContent">
+                    <div class="weather-content" id="metarContent" aria-live="polite">
                         <div class="no-data">Enter a flight plan to see METAR reports</div>
                     </div>
                 </div>
 
                 <div class="weather-card" id="tafCard">
                     <h2>
-                        <span class="notranslate" data-google-translate-ignore><i class="fas fa-calendar-alt"></i>TAF</span>
-                        <i class="fas fa-clock"></i>
+                        <span class="notranslate" data-google-translate-ignore><i class="fas fa-calendar-alt" aria-hidden="true"></i>TAF</span>
+                        <i class="fas fa-clock" aria-hidden="true"></i>
                     </h2>
-                    <div class="weather-content" id="tafContent">
+                    <div class="weather-content" id="tafContent" aria-live="polite">
                         <div class="no-data">Enter a flight plan to see TAF reports</div>
                     </div>
                 </div>
 
                 <div class="weather-card" id="pirepCard">
                     <h2>
-                        <span><i class="fas fa-comment-alt"></i> PIREP</span>
-                        <i class="fas fa-user-pilot"></i>
+                        <span><i class="fas fa-comment-alt" aria-hidden="true"></i> PIREP</span>
+                        <i class="fas fa-user-pilot" aria-hidden="true"></i>
                     </h2>
-                    <div class="weather-content" id="pirepContent">
+                    <div class="weather-content" id="pirepContent" aria-live="polite">
                         <div class="no-data">Enter a flight plan to see PIREP reports</div>
                     </div>
                 </div>
 
                 <div class="weather-card" id="sigmetCard">
                     <h2>
-                        <span><i class="fas fa-exclamation-triangle"></i> SIGMET</span>
-                        <i class="fas fa-radiation"></i>
+                        <span><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> SIGMET</span>
+                        <i class="fas fa-radiation" aria-hidden="true"></i>
                     </h2>
-                    <div class="weather-content" id="sigmetContent">
+                    <div class="weather-content" id="sigmetContent" aria-live="polite">
                         <div class="no-data">Enter a flight plan to see SIGMET reports</div>
                     </div>
                 </div>
@@ -90,46 +95,48 @@
         </div>
 
         <div class="consolidated-summary">
-            <h2><i class="fas fa-chart-line"></i> Flight Plan Overview</h2>
-            <div class="summary-content" id="consolidatedSummary">
+            <h2><i class="fas fa-chart-line" aria-hidden="true"></i> Flight Plan Overview</h2>
+            <div class="summary-content" id="consolidatedSummary" aria-live="polite">
                 <div class="no-data">Enter a flight plan to see comprehensive weather analysis</div>
             </div>
         </div>
 
         <div class="map-and-summary">
             <div class="map-container">
-                <h2><i class="fas fa-map-marked-alt"></i> Flight Path & Weather <i class="fas fa-globe-americas"></i></h2>
-                <div id="map"></div>
+                <h2><i class="fas fa-map-marked-alt" aria-hidden="true"></i> Flight Path &amp; Weather <i class="fas fa-globe-americas" aria-hidden="true"></i></h2>
+                <div id="map" aria-label="Interactive map of the flight route"></div>
             </div>
 
             <div class="weather-summary">
-                <h2><i class="fas fa-clipboard-list"></i> Route Summary</h2>
-                <div class="summary-content" id="summaryContent">
+                <h2><i class="fas fa-clipboard-list" aria-hidden="true"></i> Route Summary</h2>
+                <div class="summary-content" id="summaryContent" aria-live="polite">
                     <div class="no-data">Enter a flight plan to see route summary and weather conditions</div>
                 </div>
                 <button id="readAloudBtn" class="read-aloud-btn" title="Read weather information aloud">
-                    <i class="fas fa-volume-up"></i> Read Aloud
+                    <i class="fas fa-volume-up" aria-hidden="true"></i> Read Aloud
                 </button>
             </div>
         </div>
+        </main>
     </div>
-    <div class="notes-container">
-        <button id="notesButton" class="notes-button">
-            <i class="fas fa-sticky-note"></i>
+    <aside class="notes-container">
+        <button id="notesButton" class="notes-button" aria-label="Open flight notes" aria-expanded="false" aria-controls="notesPanel">
+            <i class="fas fa-sticky-note" aria-hidden="true"></i>
         </button>
-        <div class="notes-panel">
+        <div class="notes-panel" id="notesPanel">
             <div class="notes-header">
-                <h3><i class="fas fa-pen"></i> Flight Notes</h3>
-                <button class="close-notes"><i class="fas fa-times"></i></button>
+                <h3><i class="fas fa-pen" aria-hidden="true"></i> Flight Notes</h3>
+                <button class="close-notes" aria-label="Close flight notes"><i class="fas fa-times" aria-hidden="true"></i></button>
             </div>
+            <label for="notesTextarea" class="sr-only">Flight planning notes</label>
             <textarea id="notesTextarea" placeholder="Type your notes here..."></textarea>
-            <div class="notes-status">Auto-saved</div>
+            <div class="notes-status" aria-live="polite">Auto-saved</div>
         </div>
-    </div>
+    </aside>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
     <script src="flightPlanUtils.js"></script>
     <script src="script.js"></script>
 </body>
-</html> 
+</html>
