@@ -1,130 +1,121 @@
-# ✈️ CloudCompass - Aviation Weather Dashboard
+# CloudCompass
 
-![Project Preview](https://img.shields.io/badge/Status-Active-brightgreen)
-![License](https://img.shields.io/badge/License-MIT-blue)
-![Version](https://img.shields.io/badge/Version-1.0.0-orange)
+[![CI](https://github.com/chxmq/cloudcompass/actions/workflows/ci.yml/badge.svg)](https://github.com/chxmq/cloudcompass/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A modern, real-time aviation weather dashboard that provides comprehensive weather information for pilots and aviation enthusiasts. CloudCompass combines multiple weather data sources to create a unified, easy-to-understand interface for flight planning and weather monitoring.
+Aviation weather dashboard for flight planning. Enter a route as a list of airport codes and altitudes, and CloudCompass pulls METAR, TAF, PIREP and SIGMET data for it, decodes the raw reports, rewrites each one in plain English, and plots the route on a map.
 
-## 🌟 Features
+## Architecture
 
-- **Real-time METAR Reports**: Get current weather conditions at airports
-- **TAF Forecasts**: View terminal aerodrome forecasts
-- **PIREP Integration**: Access pilot weather reports
-- **SIGMET Alerts**: Stay informed about significant weather phenomena
-- **Interactive Map**: Visualize flight paths and weather conditions
-- **Route Summary**: Get comprehensive weather overviews for your flight plan
-- **Responsive Design**: Works seamlessly on all devices
-- **Multi-language Support**: Built-in translation capabilities
-- **Flight Notes**: Save and auto-save your flight planning notes
+![CloudCompass request flow](docs/architecture.svg)
 
-## 🛠️ Tech Stack
+The browser and the server both validate a flight plan with the same code (`shared/flightPlanUtils.js`) so client-side and server-side errors never disagree. The server is the only thing that talks to `aviationweather.gov` or Groq — the browser never sees an API key or makes an external request directly. Every weather-fetching endpoint is rate-limited per IP and restricted to allow-listed origins.
 
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Backend**: Node.js
-- **APIs**: 
-  - Aviation Weather API
-  - Groq API for weather interpretation
-  - Google Translate API for language support
+## Features
 
-## 🚀 Getting Started
+- METAR, TAF, PIREP and SIGMET data for every airport in a route
+- Each report decoded into structured fields, plus a plain-English rewrite via Groq
+- Route-level summary: overall conditions, key hazards, altitude range
+- Per-waypoint VFR / significant-weather / severe-weather classification
+- Flight path and waypoints plotted on a Leaflet map
+- Read-aloud route summary (Web Speech API)
+- Flight notes, auto-saved to `localStorage`, never sent to the server
+- Google Translate integration for the rendered UI
+
+## Project structure
+
+```
+cloudcompass/
+├── public/                  # Static client, served as-is
+│   ├── index.html
+│   ├── script.js
+│   └── styles.css
+├── server/
+│   └── index.js             # Express app: routes, rate limiting, Groq/aviationweather.gov calls
+├── shared/
+│   └── flightPlanUtils.js   # Flight plan parsing/validation, used by both server and browser
+├── test/
+│   └── flightPlanUtils.test.js
+├── docs/
+│   └── architecture.svg
+├── .github/
+│   ├── workflows/ci.yml     # Tests + Docker build check on every push/PR
+│   └── dependabot.yml
+├── Dockerfile
+├── .env.example
+└── package.json
+```
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-- Groq API key
+- Node.js 18+
+- A [Groq](https://console.groq.com) API key
 
-### Installation
+### Setup
 
-1. Clone the repository:
 ```bash
 git clone https://github.com/chxmq/cloudcompass.git
 cd cloudcompass
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Create a `.env` file in the root directory:
-```env
-GROQ_API_KEY=your_groq_api_key
-```
-
-4. Start the server:
-```bash
+cp .env.example .env   # then fill in GROQ_API_KEY
 npm start
 ```
 
-5. Open your browser and navigate to `http://localhost:3000`
+The app is served at `http://localhost:3000`. `npm run dev` runs it under `nodemon` for auto-restart during development.
 
-## 📝 Usage
+### Tests
 
-1. Enter your flight plan in the format: `KPHX,1500,KBXK,12000,KPSP,20000,KLAX,50`
-   - Airport codes must be 3-4 uppercase letters
-   - Altitudes must be in feet (0-60000)
+```bash
+npm test
+```
 
-2. Click "Get Weather" to fetch weather data
+Runs the flight-plan parsing/validation suite with Node's built-in test runner.
 
-3. View comprehensive weather information:
-   - METAR reports
-   - TAF forecasts
-   - PIREP reports
-   - SIGMET alerts
-   - Interactive map
-   - Route summary
+### Docker
 
-4. Use the translation feature to view the dashboard in multiple languages
+```bash
+docker build -t cloudcompass .
+docker run -p 3000:3000 -e GROQ_API_KEY=your_groq_api_key cloudcompass
+```
 
-5. Access the flight notes feature by clicking the notes icon in the bottom right corner:
-   - Write and save your flight planning notes
-   - Notes are automatically saved as you type
-   - Access your notes anytime during your flight planning session
+## CI
 
-## 🎨 Design
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and PR to `main`:
 
-- Modern, clean interface
-- Responsive layout
-- Color-coded weather conditions
-- Interactive weather cards
-- Smooth animations and transitions
+- Unit tests on Node 18, 20 and 22
+- `npm audit` at high severity
+- A boot smoke test (starts the server, hits `/`, `/api/config`, `/script.js`, `/flightPlanUtils.js`)
+- A Docker build check (image is built but not published)
 
-## 🔍 Weather Conditions
+## Configuration
 
-- **VFR (Green)**: Visual Flight Rules conditions
-- **Significant Weather (Orange)**: Marginal VFR or IFR conditions
-- **Severe Weather (Red)**: Hazardous weather conditions
+Set these in `.env` (see `.env.example`):
 
-## 🤝 Contributing
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `GROQ_API_KEY` | Yes | — | Used to generate plain-English weather summaries |
+| `PORT` | No | `3000` | Port the server listens on |
+| `ALLOWED_ORIGINS` | No | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated origins allowed to call the API cross-origin. Same-origin requests always work regardless of this value |
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## API
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+| Endpoint | Method | Query params | Returns |
+|---|---|---|---|
+| `/api/weather` | GET | `route` — e.g. `KPHX,10000,KLAX,50` | Raw + decoded METAR/TAF/PIREP/SIGMET, plus a plain-English summary per report |
+| `/api/consolidated-summary` | GET | `route` | One Groq-generated summary covering the whole route |
+| `/api/config` | GET | — | Map center/zoom defaults for the client |
 
-## 📄 License
+`route` is a comma-separated list of alternating airport code (3-4 uppercase letters) and altitude in feet (0-60000). Both weather endpoints are rate-limited to 15 requests/minute per IP.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Usage
 
-## 🙏 Acknowledgments
+1. Enter a flight plan, e.g. `KPHX,1500,KBXK,12000,KPSP,20000,KLAX,50`
+2. Click **Get Weather**
+3. Read the decoded reports, the route summary, and the flight path on the map
+4. Optionally translate the page or open the notes panel to jot down flight planning notes
 
-- Aviation Weather API for providing weather data
-- Groq for AI-powered weather interpretation
-- Google Translate for language support
-- All contributors and users of the project
+## License
 
-## 📞 Support
-
-For support, please open an issue in the GitHub repository or contact the maintainers.
-
----
-
-<div align="center">
-  <p>Made with ❤️ by champ</p>
-  <p>✈️ Fly Safe! ✈️</p>
-</div> 
+MIT — see [LICENSE](LICENSE).

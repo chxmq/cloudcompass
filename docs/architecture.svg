@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CloudCompass request flow</title>
+  <desc id="desc">A flight plan is validated in the browser and again on the server using the same shared parser. The server rate-limits and CORS-checks the request, fetches raw METAR, TAF, PIREP and SIGMET text from aviationweather.gov, normalizes it, and asks Groq to rewrite each report in plain English. The combined JSON response is rendered back into weather cards, a route summary and a Leaflet map in the browser. Flight notes stay client-side in localStorage and never reach the server.</desc>
+
+  <defs>
+    <marker id="arrow-teal" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#0F6B63"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#C97A1A"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#B3402F"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .title { font-size: 30px; font-weight: 700; fill: #16232E; }
+      .subtitle { font-size: 15px; fill: #5B6B72; }
+      .zone-label { font-size: 13px; font-weight: 700; letter-spacing: 1.2px; }
+      .box-title { font-size: 16px; font-weight: 700; fill: #16232E; }
+      .box-body { font-size: 13px; fill: #3B4A52; }
+      .box-note { font-size: 12px; fill: #5B6B72; font-style: italic; }
+      .edge-label { font-size: 12px; fill: #3B4A52; }
+      .footer-text { font-size: 13px; fill: #3B4A52; }
+      .box { stroke-width: 1.5; }
+      .arrow { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#FFFDF9"/>
+
+  <text x="48" y="56" class="title">CloudCompass request flow</text>
+  <text x="48" y="82" class="subtitle">From a flight plan string to rendered weather cards, a route summary and a map</text>
+
+  <!-- Zone containers -->
+  <rect x="32" y="118" width="430" height="640" rx="20" fill="#0F6B63" fill-opacity="0.05" stroke="#0F6B63" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="6 6"/>
+  <text x="54" y="146" class="zone-label" fill="#0B4F49">BROWSER</text>
+
+  <rect x="500" y="118" width="560" height="640" rx="20" fill="#16232E" fill-opacity="0.04" stroke="#16232E" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="6 6"/>
+  <text x="522" y="146" class="zone-label" fill="#16232E">SERVER (server/index.js)</text>
+
+  <rect x="1098" y="118" width="470" height="640" rx="20" fill="#C97A1A" fill-opacity="0.06" stroke="#C97A1A" stroke-opacity="0.4" stroke-width="1.5" stroke-dasharray="6 6"/>
+  <text x="1120" y="146" class="zone-label" fill="#9A5D13">EXTERNAL SERVICES</text>
+
+  <!-- Browser boxes -->
+  <rect class="box" x="54" y="184" width="386" height="104" rx="12" fill="#FFFFFF" stroke="#0F6B63"/>
+  <text x="76" y="214" class="box-title">Flight plan input</text>
+  <text x="76" y="238" class="box-body">"KPHX,10000,KLAX,50" typed into</text>
+  <text x="76" y="256" class="box-body">the search box</text>
+  <text x="76" y="277" class="box-note">Validated immediately, before any request fires</text>
+
+  <rect class="box" x="54" y="322" width="386" height="220" rx="12" fill="#FFFFFF" stroke="#0F6B63"/>
+  <text x="76" y="352" class="box-title">Rendered dashboard</text>
+  <text x="76" y="376" class="box-body">METAR / TAF / PIREP / SIGMET cards</text>
+  <text x="76" y="396" class="box-body">decoded fields + plain-English text</text>
+  <text x="76" y="420" class="box-body">Route summary, color-coded</text>
+  <text x="76" y="440" class="box-body">VFR / SIG-WX / SEVERE-WX per waypoint</text>
+  <text x="76" y="464" class="box-body">Flight path plotted on a Leaflet map</text>
+  <text x="76" y="488" class="box-body">using a local airport coordinate table</text>
+  <text x="76" y="519" class="box-note">All HTML-escaped before insertion</text>
+
+  <rect class="box" x="54" y="578" width="386" height="94" rx="12" fill="#FFFFFF" stroke="#0F6B63"/>
+  <text x="76" y="608" class="box-title">Flight notes</text>
+  <text x="76" y="632" class="box-body">Free-text notes, auto-saved to</text>
+  <text x="76" y="650" class="box-body">localStorage as you type</text>
+  <text x="76" y="662" class="box-note" fill="#0B4F49">Client-only &#8212; never sent to the server</text>
+
+  <!-- Shared validator, straddling the two zones -->
+  <rect class="box" x="234" y="700" width="380" height="90" rx="12" fill="#EAF2F0" stroke="#0F6B63" stroke-width="2"/>
+  <text x="424" y="726" text-anchor="middle" class="box-title">shared/flightPlanUtils.js</text>
+  <text x="424" y="748" text-anchor="middle" class="box-body">One parser, required by the server and loaded</text>
+  <text x="424" y="766" text-anchor="middle" class="box-body">as a plain script in the browser &#8212; same rules, same error text</text>
+
+  <!-- Server boxes -->
+  <rect class="box" x="522" y="184" width="516" height="90" rx="12" fill="#FFFFFF" stroke="#16232E"/>
+  <text x="544" y="214" class="box-title">Rate limit + CORS allow-list</text>
+  <text x="544" y="238" class="box-body">15 req/min per IP on the weather endpoints; only allow-listed origins get CORS headers</text>
+  <text x="544" y="258" class="box-note">Keeps the Groq key from being burned by anonymous traffic</text>
+
+  <rect class="box" x="522" y="298" width="516" height="90" rx="12" fill="#FFFFFF" stroke="#16232E"/>
+  <text x="544" y="328" class="box-title">Route validation</text>
+  <text x="544" y="352" class="box-body">Re-parses the route with the same shared validator &#8212;</text>
+  <text x="544" y="370" class="box-body">the server never trusts client-side checks alone</text>
+
+  <rect class="box" x="522" y="412" width="516" height="130" rx="12" fill="#FFFFFF" stroke="#16232E"/>
+  <text x="544" y="442" class="box-title">Fetch &amp; normalize weather</text>
+  <text x="544" y="466" class="box-body">Requests METAR / TAF (by route) and PIREP</text>
+  <text x="544" y="484" class="box-body">(per waypoint, 200 nm radius) with a request timeout</text>
+  <text x="544" y="502" class="box-body">Strips report-type prefixes, reassembles multi-line TAFs</text>
+  <text x="544" y="524" class="box-note">SIGMET/AIRMET fetch failures degrade gracefully to an empty list</text>
+
+  <rect class="box" x="522" y="566" width="516" height="118" rx="12" fill="#FFFFFF" stroke="#16232E"/>
+  <text x="544" y="596" class="box-title">Summarize with Groq</text>
+  <text x="544" y="620" class="box-body">Every report is rewritten in plain English in parallel</text>
+  <text x="544" y="638" class="box-body">(Promise.all, not a request-per-report loop)</text>
+  <text x="544" y="660" class="box-note">On failure, falls back to a static message &#8212; raw data still renders</text>
+
+  <!-- External services boxes -->
+  <rect class="box" x="1128" y="220" width="410" height="150" rx="12" fill="#FFFFFF" stroke="#C97A1A"/>
+  <text x="1150" y="250" class="box-title">aviationweather.gov</text>
+  <text x="1150" y="274" class="box-body">/api/data/metar, /taf, /pirep</text>
+  <text x="1150" y="294" class="box-body">/api/data/airsigmet, /isigmet</text>
+  <text x="1150" y="318" class="box-body">Public REST API, raw text format</text>
+  <text x="1150" y="342" class="box-note">No API key required</text>
+
+  <rect class="box" x="1128" y="430" width="410" height="150" rx="12" fill="#FFFFFF" stroke="#C97A1A"/>
+  <text x="1150" y="460" class="box-title">Groq</text>
+  <text x="1150" y="484" class="box-body">Chat completion, one prompt per report</text>
+  <text x="1150" y="508" class="box-body">plus one consolidated route summary</text>
+  <text x="1150" y="532" class="box-note">GROQ_API_KEY stays server-side, always</text>
+
+  <!-- Arrows -->
+  <!-- Browser input -> server rate limit/validation gate -->
+  <path class="arrow" d="M440 234 C486 226 486 224 522 220" stroke="#0F6B63" marker-end="url(#arrow-teal)"/>
+  <rect x="447" y="187" width="72" height="20" rx="10" fill="#FFFDF9"/>
+  <text x="483" y="201" text-anchor="middle" class="edge-label">route query</text>
+
+  <!-- rejection path back -->
+  <path class="arrow" d="M522 358 C486 358 486 272 440 266" stroke="#B3402F" marker-end="url(#arrow-red)" stroke-dasharray="4 4"/>
+  <rect x="447" y="304" width="72" height="20" rx="10" fill="#FFFDF9"/>
+  <text x="483" y="318" text-anchor="middle" class="edge-label" fill="#B3402F">400 if invalid</text>
+
+  <!-- rate limit -> validation -->
+  <path class="arrow" d="M780 274 V298" stroke="#16232E" marker-end="url(#arrow-teal)"/>
+
+  <!-- validation -> fetch -->
+  <path class="arrow" d="M780 388 V412" stroke="#16232E" marker-end="url(#arrow-teal)"/>
+
+  <!-- fetch -> external services -->
+  <path class="arrow" d="M1038 460 H1128" stroke="#C97A1A" marker-end="url(#arrow-amber)"/>
+  <rect x="1050" y="440" width="76" height="18" rx="9" fill="#FFFDF9"/>
+  <text x="1088" y="453" text-anchor="middle" class="edge-label">raw reports</text>
+
+  <!-- fetch -> summarize -->
+  <path class="arrow" d="M780 542 V566" stroke="#16232E" marker-end="url(#arrow-teal)"/>
+
+  <!-- summarize -> groq -->
+  <path class="arrow" d="M1038 615 H1128" stroke="#C97A1A" marker-end="url(#arrow-amber)"/>
+  <rect x="1046" y="596" width="76" height="18" rx="9" fill="#FFFDF9"/>
+  <text x="1084" y="609" text-anchor="middle" class="edge-label">report text</text>
+  <path class="arrow" d="M1128 648 H1038" stroke="#C97A1A" marker-end="url(#arrow-amber)"/>
+  <rect x="1040" y="654" width="86" height="18" rx="9" fill="#FFFDF9"/>
+  <text x="1083" y="667" text-anchor="middle" class="edge-label">plain English</text>
+
+  <!-- server -> browser response -->
+  <path class="arrow" d="M522 600 C486 612 486 420 440 420" stroke="#0F6B63" marker-end="url(#arrow-teal)" stroke-width="2.4"/>
+  <rect x="443" y="497" width="94" height="20" rx="10" fill="#FFFDF9"/>
+  <text x="490" y="511" text-anchor="middle" class="edge-label" font-weight="700">combined JSON</text>
+
+  <!-- shared validator: browser loads the same file the server requires -->
+  <path class="arrow" d="M300 672 V700" stroke="#0F6B63" marker-end="url(#arrow-teal)" stroke-dasharray="3 5"/>
+
+  <!-- Footer -->
+  <rect x="32" y="808" width="1536" height="60" rx="14" fill="#16232E" fill-opacity="0.04" stroke="#DDE4E2"/>
+  <text x="800" y="834" text-anchor="middle" class="footer-text" font-weight="700">The browser never talks to aviationweather.gov or Groq directly.</text>
+  <text x="800" y="854" text-anchor="middle" class="footer-text">Every external call, API key and rate limit lives in one place: the server.</text>
+</svg>

@@ -1,0 +1,6 @@
+# Normalize line endings for everyone, regardless of OS/editor config.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.svg text eol=lf
